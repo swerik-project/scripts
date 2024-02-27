@@ -1,0 +1,16 @@
+*.pyc
+.ipynb_checkpoints/
+*~
+*.DS_Store
+input/raw/
+data/protocols/prot*
+*.bin
+.Rproj.user
+pyriksdagen/source/
+**.bin.gz
+**.zip
+*.backup
+input/KWIC/*.csv
+input/rawpdf/*
+**/_*
+
