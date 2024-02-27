@@ -21,9 +21,9 @@ def main(args):
     end_year = args.end
 
     parser = etree.XMLParser(remove_blank_text=True)
-    intro_df = pd.read_csv('input/segmentation/intros.csv')
+    intro_df = pd.read_csv(args.segmentation_file)
 
-    for protocol in progressbar.progressbar(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end))):
+    for protocol in progressbar.progressbar(list(protocol_iterators(args.records_folder, start=args.start, end=args.end))):
         intro_ids = intro_df.loc[intro_df['file_path'] == protocol, 'id'].tolist()
 
         metadata = infer_metadata(protocol)
@@ -57,6 +57,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--records_folder", type=str, default="corpus/protocols")
+    parser.add_argument("--segmentation_file", type=str, default="input/segmentation/intros.csv")
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     args = parser.parse_args()
