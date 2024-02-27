@@ -17,23 +17,23 @@ from pyriksdagen.db import clean_person_duplicates
 from pathlib import Path
 
 def track_missing_id(df, l, id_map=None):
-	no_id = df.loc[pd.isna(df["swerik_id"])]
+	no_id = df.loc[pd.isna(df["person_id"])]
 	for i, r in no_id.iterrows():
-		tmpdf = df.loc[(df['government'] == r['government']) & (df['role'] == r['role']) & (df['wiki_id'] == r['wiki_id']) & (pd.notnull(df["swerik_id"]))]
+		tmpdf = df.loc[(df['government'] == r['government']) & (df['role'] == r['role']) & (df['wiki_id'] == r['wiki_id']) & (pd.notnull(df["person_id"]))]
 		if tmpdf.empty:
 			found = False
 			if not id_map.empty:
 				tmpidmap = id_map.loc[id_map['wiki_id'] == r['wiki_id']].copy()
 				if not tmpidmap.empty:
 					tmpidmap.reset_index(drop=True, inplace=True)
-					swerik_id = tmpidmap.at[0, "swerik_id"]
-					df.at[i, "swerik_id"] = swerik_id
+					swerik_id = tmpidmap.at[0, "person_id"]
+					df.at[i, "person_id"] = swerik_id
 					found = True
 			if found == False:
 				if r['wiki_id'] not in l:
 					l.append(r['wiki_id'])
 
-	df = df.loc[pd.notnull(df['swerik_id'])].copy()
+	df = df.loc[pd.notnull(df['person_id'])].copy()
 	df.drop(columns=["wiki_id"], inplace=True)
 	return df.reset_index(drop=True), l
 
