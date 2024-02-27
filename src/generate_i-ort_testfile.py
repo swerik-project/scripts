@@ -52,8 +52,8 @@ def main(args):
 	print(counter, lines, c1, counter+lines, len(outdf))
 
 if __name__ == '__main__':
+	import argparse
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--qa_folder", type=str, default="corpus/quality_assessment")
 	args = parser.parse_args()
 	main(args)
-	

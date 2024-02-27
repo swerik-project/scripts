@@ -19,3 +19,4 @@ torch
 tqdm
 transformers
 Unidecode
+Wikidata

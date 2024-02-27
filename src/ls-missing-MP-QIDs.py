@@ -2,8 +2,8 @@
 import pandas as pd
 import os, json
 
-def main():
-	MPDir = "corpus/quality_assessment/known_mps"
+def main(args):
+	MPDir = f"{args.qa_folder}/known_mps"
 	missings = os.listdir(MPDir)
 	qids = []
 	QIDs = {}
@@ -46,4 +46,8 @@ def main():
 
 
 if __name__ == '__main__':
-	main()
+	import argparse
+	parser = argparse.ArgumentParser(description=__doc__)
+	parser.add_argument("--qa_folder", type=str, default="corpus/quality_assessment")
+	args = parser.parse_args()
+	main(args)
