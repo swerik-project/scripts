@@ -71,7 +71,7 @@ def main(args):
         intros.append(df)
 
     df = pd.concat(intros)
-    df.to_csv('input/segmentation/intros.csv', index=False)
+    df.to_csv(args.outpath, index=False)
 
 
 if __name__ == "__main__":
@@ -79,5 +79,6 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     parser.add_argument("--cuda", action="store_true", help="Set this flag to run with cuda.")
+    parser.add_argument("--outpath", default="input/segmentation/intros.csv")
     args = parser.parse_args()
     main(args)

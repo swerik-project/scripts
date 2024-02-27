@@ -145,7 +145,7 @@ def ck_segmentation(e):
 
 
 def main(args):
-	csv_path = f"input/quality-control/sample_{args.decade}.csv"
+	csv_path = f"{args.path}/sample_{args.decade}.csv"
 	df = pd.read_csv(csv_path)
 
 	driver = None
@@ -238,6 +238,7 @@ def main(args):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=__doc__, epilog="You need to specify a decade by its first year with -d")
+	parser.add_argument("-d", "--path", type=int, default="input/quality-control")
 	parser.add_argument("-d", "--decade", type=int, default=None, help="Start year of the decade (the one in the file name of input/quality-control/sample_<YEAR>.csv).")
 	parser.add_argument("-u", "--username", type=str, default=None, help="Username for betalab (you only need this if its not set in your environemnt variables -- $KBLPASS).")
 	parser.add_argument("-p", "--password", type=str, default=None, help="Password for betalab (you only need this if its not set in your environemnt variables -- $KBLUSER).")

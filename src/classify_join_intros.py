@@ -80,15 +80,15 @@ def classify_split_intros(args):
     # Gather prediction data
     protocols = sorted(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end)))
     if args.read_intros:
-        intro_df = pd.read_csv('input/segmentation/_intros.csv')
+        intro_df = pd.read_csv(f'{args.segmentation_folder}/_intros.csv')
     else:
         print("Looking for intros")
         intro_df = find_intros(protocols)
-        intro_df.to_csv('input/segmentation/_intros.csv', index=False)
+        intro_df.to_csv(f'{args.segmentation_folder}/_intros.csv', index=False)
         print(intro_df)
 
     if args.read_predictions:
-        df = pd.read_csv("input/segmentation/_intro-prediction-data.csv")
+        df = pd.read_csv(f"{args.segmentation_folder}/_intro-prediction-data.csv")
     else:
         find_func = partial(find_consequtive_intros, intro_df=intro_df)
         data = []
@@ -98,7 +98,7 @@ def classify_split_intros(args):
                 data.append(df)
         df = pd.concat(data)
         print(df)
-        df.to_csv("input/segmentation/_intro-prediction-data.csv", index=False)
+        df.to_csv(f"{args.segmentation_folder}/_intro-prediction-data.csv", index=False)
 
     model = AutoModelForNextSentencePrediction.from_pretrained("_jesperjmb/MergeIntrosNSP").to("cuda")
     test_dataset = MergeDataset(df)
@@ -118,7 +118,7 @@ def classify_split_intros(args):
                     intros.append([protocol, xml_id1, xml_id2, text1, text2])
 
     df = pd.DataFrame(intros, columns=['protocol', 'xml_id1', 'xml_id2', 'text1', 'text2'])
-    df.to_csv('input/segmentation/_join_intros.csv', index=False)
+    df.to_csv(f'{args.segmentation_folder}/_join_intros.csv', index=False)
     return df
 
 
@@ -130,13 +130,13 @@ def strip_whitespace(text):
 
 
 
-def join_intros(df):
+def join_intros(df, segmentation_folder):
     protocols = df["protocol"].unique()
     try:
-        with open("input/segmentation/_hyphen-surname.json", "r") as inj:
+        with open(f"{segmentation_folder}/_hyphen-surname.json", "r") as inj:
             D = json.load(inj)
     except:
-        print("ERROR: `input/segmentation/_hyphen-surname.json` not found. Run with `-H`")
+        print(f"ERROR: `{segmentation_folder}/_hyphen-surname.json` not found. Run with `-H`")
         sys.exit()
     print("Joining split intros")
     for p in tqdm(protocols, total=len(protocols)):
@@ -168,9 +168,9 @@ def join_intros(df):
 
 
 
-def dictify_hyphen_names():
+def dictify_hyphen_names(segmentation_folder):
     print("Generating hypen-surname.json")
-    df = pd.read_csv("input/segmentation/_join_intros.csv")
+    df = pd.read_csv(f"{segmentation_folder}/_join_intros.csv")
     D = {}
     for i, r in df.iterrows():
         if r['ignore'] != "TRUE":
@@ -189,7 +189,7 @@ def dictify_hyphen_names():
             if m:
                 print("~~|"+m+"|~~")
             print("")
-    with open("input/segmentation/_hyphen-surname.json", "w+") as outj:
+    with open(f"{segmentation_folder}/_hyphen-surname.json", "w+") as outj:
         json.dump(D, outj, ensure_ascii=False, indent=4)
 
 
@@ -197,22 +197,23 @@ def dictify_hyphen_names():
 
 def main(args):
     if args.hyphen_check:
-        dictify_hyphen_names()
+        dictify_hyphen_names(args.segmentation_folder)
     else:
         df = None
         if args.classify_only:
             df = classify_split_intros(args)
         if args.join_only:
             if df:
-                join_intros(df)
+                join_intros(df, args.segmentation_folder)
             else:
-                join_intros(pd.read_csv('input/segmentation/_join_intros.csv'))
+                join_intros(pd.read_csv(f'{args.segmentation_folder}/_join_intros.csv'), args.segmentation_folder)
 
 
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-s", "--segmentation_folder", type=str, default="input/segmentation")
     parser.add_argument("-s", "--start",
                         type=int,
                         default=1867,

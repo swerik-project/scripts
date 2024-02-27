@@ -20,7 +20,7 @@ tei_ns = ".//{http://www.tei-c.org/ns/1.0}"
 xml_ns = "{http://www.w3.org/XML/1998/namespace}"
 parser = etree.XMLParser(remove_blank_text=True)
 
-def populate_protocol(jsonpath):
+def populate_protocol(jsonpath, rawpath):
     with open(jsonpath, encoding='utf-8-sig') as f:
         d = json.load(f)
         d = d["dokumentstatus"]
@@ -52,7 +52,7 @@ def populate_protocol(jsonpath):
         logging.error(f'Protocol file {xmlpath} missing! Skipping...')
         return
     
-    pdfpath = f'input/rawpdf/{riksdagen_protocol_id}.pdf'
+    pdfpath = f'{rawpath}/{riksdagen_protocol_id}.pdf'
     txtpath = pdfpath.replace(".pdf", ".txt")
     pdf_exists = Path(pdfpath).exists()
     txt_exists = Path(pdfpath).exists()
@@ -61,7 +61,7 @@ def populate_protocol(jsonpath):
         print("Download", pdfpath, "...")
         logging.info(f"Download {pdfpath} ...")
         r = requests.get(pdf_url)
-        with open(f'input/rawpdf/{riksdagen_protocol_id}.pdf', 'wb') as f:
+        with open(f'{rawpath}/{riksdagen_protocol_id}.pdf', 'wb') as f:
             f.write(r.content)
     else:
         logging.info(f"{pdfpath} already downloaded")
@@ -159,7 +159,7 @@ def main(args):
     folder = Path(args.jsonpath)
     for p in tqdm(list(folder.glob("*.json"))):
         try:
-            populate_protocol(p)
+            populate_protocol(p, args.rawpath)
         except KeyboardInterrupt:
             return
         except Exception:
@@ -171,6 +171,7 @@ if __name__ == '__main__':
     import argparse
     argparser = argparse.ArgumentParser(description=__doc__)
     argparser.add_argument("--jsonpath", type=str)
+    argparser.add_argument("--rawpath", type=str)
     argparser.add_argument("--utf8sig", type=bool, default=False)
     args = argparser.parse_args()
     main(args)
