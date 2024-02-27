@@ -19,13 +19,13 @@ import re
 
 
 
-def load_additional_metadata():
+def load_additional_metadata(metadata_folder):
     amd = {
-        "party_affiliation": pd.read_csv("corpus/metadata/party_affiliation.csv"),
-        "external_identifiers": pd.read_csv("corpus/metadata/external_identifiers.csv"),
-        "place_of_birth": pd.read_csv("corpus/metadata/place_of_birth.csv"),
-        "place_of_death": pd.read_csv("corpus/metadata/place_of_death.csv"),
-        "portraits": pd.read_csv("corpus/metadata/portraits.csv"),
+        "party_affiliation": pd.read_csv(f"{metadata_folder}/party_affiliation.csv"),
+        "external_identifiers": pd.read_csv(f"{metadata_folder}/external_identifiers.csv"),
+        "place_of_birth": pd.read_csv(f"{metadata_folder}/place_of_birth.csv"),
+        "place_of_death": pd.read_csv(f"{metadata_folder}/place_of_death.csv"),
+        "portraits": pd.read_csv(f"{metadata_folder}/portraits.csv"),
     }
     return amd
 
@@ -36,12 +36,12 @@ def main(args):
     now = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     print("Comparing last meta ID set with this meta ID set.")
     try:
-        with open("input/metadata/catalog-id-list.txt", "r") as inf:
+        with open(f"{args.input_metadata_folder}/catalog-id-list.txt", "r") as inf:
             last_catalog_list = [_.strip() for _ in inf.readlines()]
     except:
         last_catalog_list = None
     ids_need_attention = []
-    last_pulled_ids = pd.read_csv("corpus/metadata/wiki_id.csv")
+    last_pulled_ids = pd.read_csv(f"{args.metadata_folder}/wiki_id.csv")
     this_catalog_list = last_pulled_ids["swerik_id"].unique()
     if last_catalog_list:
         [ids_need_attention.append(_) for _ in last_catalog_list if _ not in this_catalog_list]
@@ -53,7 +53,7 @@ def main(args):
     print("fetching corpus metadata")
     corpus_metadata = load_Corpus_metadata()
     corpus_metadata = corpus_metadata.fillna(np.nan).replace([np.nan], [None])
-    additional_metadata = load_additional_metadata()
+    additional_metadata = load_additional_metadata(args.metadata_folder)
     print(" -- ok")
 
 
@@ -98,9 +98,9 @@ def main(args):
 
     print("cleaning up...")
     print(f"{len(ids_need_attention)} problem IDs, {issue_counter} from generating the catalog.")
-    with open("input/metadata/catalog_problem-ids.txt", "w+") as out:
+    with open(f"{args.input_metadata_folder}/catalog_problem-ids.txt", "w+") as out:
         [out.write(f"{_}\n") for _ in ids_need_attention]
-    with open("input/metadata/catalog-id-list.txt", "w+") as out:
+    with open(f"{args.input_metadata_folder}/catalog-id-list.txt", "w+") as out:
         [out.write(f"{_}\n") for _ in this_catalog_list]
 
     print(" -- ok, byeee")
@@ -110,6 +110,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--metadata_folder", type=str, default="corpus/metadata")
+    parser.add_argument("--input_metadata_folder", type=str, default="input/metadata")
     parser.add_argument("-w", "--website_root",
                         type=str,
                         default="../swerik-project.github.io/",

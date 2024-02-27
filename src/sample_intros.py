@@ -44,7 +44,7 @@ def sample(df, n=1, by='year', random_state=None):
 
 
 def main(args):
-	protocols = sorted(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end)))
+	protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
 
 	# Extract intros
 	data = []
@@ -57,14 +57,16 @@ def main(args):
 	df['year'] = df['github'].str.extract(r'(?:\/)(\d{4,8})(?:\/)')
 	df['year'] = df['year'].str[:4].astype(int)
 	df = sample(df, n=args.n, random_state=args.seed)
-	df.to_csv(f"input/accuracy/intro_sample_{str(datetime.date.today())}.csv", index=False)
+	df.to_csv(f"{args.outfolder}/intro_sample_{str(datetime.date.today())}.csv", index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--records_folder", type=str, default="corpus/protocols")
     parser.add_argument("--start", type=int, default=1920)
     parser.add_argument("--end", type=int, default=2022)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--n", type=int, default=5)
+    parser.add_argument("--outfolder", type=str, default="input/accuracy")
     args = parser.parse_args()
     main(args)

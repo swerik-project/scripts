@@ -148,7 +148,7 @@ def main(args):
     if args.protocol:
         protocols = [args.protocol]
     else:
-        protocols = list(protocol_iterators("corpus/", start=args.start, end=args.end))
+        protocols = list(protocol_iterators(args.records_path, start=args.start, end=args.end))
 
     for protocol in tqdm(protocols):
         if DEBUG: print(protocol)
@@ -174,7 +174,7 @@ def main(args):
 
     if len(rows) > 0:
         df = pd.DataFrame(rows, columns=["id", "preds"])
-        df.to_csv("input/segmentation/section_heuristic_preds.csv", index=False)
+        df.to_csv(args.outpath, index=False)
 
     print("FAILURES:", skip_counter)
     [print("~~>", _) for _ in failures]
@@ -184,10 +184,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--records_path", type=str, default="corpus/records")
     parser.add_argument("-s", "--start", type=int, default=1867, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     parser.add_argument("-p", "--protocol", type=str, help="Provide a specific protocol")
     parser.add_argument("-d", "--debug", action="store_true", help="Print debug statements")
     parser.add_argument("-c", "--nextprev-only", action="store_true", help="Only clean up next-prev attrs.")
+    parser.add_argument("--outpath", type=str, default="input/segmentation/section_heuristic_preds.csv")
     args = parser.parse_args()
     main(args)

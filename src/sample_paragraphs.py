@@ -95,20 +95,20 @@ def sample_paragraphs(df):
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description=__doc__)
+    argparser.add_argument('--records_folder', type=str, default="corpus/records")
     argparser.add_argument('--head', type=int, default=0, help="Start taking paragraphs from this index")
     argparser.add_argument('--tail', type=int, default=3, help="Take paragraphs until this index")
     argparser.add_argument("--start", type=int, default=1867, help="Start year")
     argparser.add_argument("--end", type=int, default=2029, help="End year")
     argparser.add_argument("--paragraph_type", type=str, default=None, help="Type of paragraphs to sample [None, 'intro']")
+    argparser.add_argument("--outpath", type=str, default="input/gold-standard/prot-segment-classification.csv")
     args = argparser.parse_args()
-
-    path = 'corpus/protocols'
 
     dfs = []
     for decade in range(args.start, args.end):
         print("Year:", decade)
         decade_end = decade
-        protocol_df = get_paragraph_counts(decade, decade_end, paragraph_type=args.paragraph_type)
+        protocol_df = get_paragraph_counts(decade, decade_end, args.records_folder, paragraph_type=args.paragraph_type)
         if protocol_df is None:
             continue
         print(protocol_df)
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         cols = ["protocol_id", "elem_id", "speaker_name", "speaker_i_ort", "speaker_party", "speaker_born", "speaker_wiki_id", "comments", "text", "link"]
         df = df[cols]
         
-    df.to_csv(f"input/gold-standard/prot-segment-classification.csv", index=False)
+    df.to_csv(args.outpath, index=False)
 
 
 
