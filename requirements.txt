@@ -11,6 +11,7 @@ pyparlaclarin
 pyriksdagen
 requests
 scikit_learn
+seaborn
 selenium
 SPARQLWrapper
 tensorflow
