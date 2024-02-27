@@ -85,7 +85,7 @@ def main(args):
 
 		# Store files needing additional preprocessing in input
 		folder = args.metadata_folder if not q in input_folders else args.input_metadata_folder
-		if folder == 'input':
+		if folder == args.input_metadata_folder:
 			d[q] = df
 
 		if q == 'person':
