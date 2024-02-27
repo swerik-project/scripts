@@ -17,8 +17,11 @@ segments_with_speaker = ["u"]
 tei_ns = ".//{http://www.tei-c.org/ns/1.0}"
 xml_ns = "{http://www.w3.org/XML/1998/namespace}"
 
-mp_names = pd.read_csv("corpus/metadata/name.csv")
-mp_affil = pd.read_csv("corpus/metadata/member_of_parliament.csv")
+def set_mp_dbs(metadata_folder):
+	global mp_names
+	global mp_affil
+	mp_names = pd.read_csv(f"{metadata_folder}/name.csv")
+	mp_affil = pd.read_csv(f"{metadata_folder}/member_of_parliament.csv")
 
 note_types = {
 	"i": "inline",
@@ -238,13 +241,14 @@ def main(args):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=__doc__, epilog="You need to specify a decade by its first year with -d")
-	parser.add_argument("-d", "--path", type=int, default="input/quality-control")
+	parser.add_argument("--metadata_folder", type=str, default="corpus/metadata")
 	parser.add_argument("-d", "--decade", type=int, default=None, help="Start year of the decade (the one in the file name of input/quality-control/sample_<YEAR>.csv).")
 	parser.add_argument("-u", "--username", type=str, default=None, help="Username for betalab (you only need this if its not set in your environemnt variables -- $KBLPASS).")
 	parser.add_argument("-p", "--password", type=str, default=None, help="Password for betalab (you only need this if its not set in your environemnt variables -- $KBLUSER).")
 	parser.add_argument("-t", "--tabs", action="store_true", help="Set this if you want to open kblab and github in browser tabs, otherwise this script will open separate windows for each one.")
 	args = parser.parse_args()
 
+	set_mp_dbs(args.metadata_folder)
 	if args.decade:
 		if not args.password and not args.username:
 			if "KBLUSER" in os.environ and "KBLPASS" in os.environ:
