@@ -5,9 +5,8 @@ Genenrates quality assessment file with list of i-ort.
 import pandas as pd
 
 
-def main():
-
-	df = pd.read_csv("corpus/quality_assessment/known_mps/known_mps_catalog.csv", sep=";")
+def main(args):
+	df = pd.read_csv(f"{args.qa_folder}/known_mps/known_mps_catalog.csv", sep=";")
 
 	counter = 0
 	c1 = 0
@@ -48,9 +47,13 @@ def main():
 			rows.append([r["wiki_id"], surname, r["first_name"], ort])
 
 	outdf = pd.DataFrame(rows, columns=["wiki_id", "surname", "first_name", "iort"])
-	outdf.to_csv("corpus/quality_assessment/known_iorter/known_iorter.csv", sep=";", index=False)
+	outdf.to_csv(f"{args.qa_folder}/known_iorter/known_iorter.csv", sep=";", index=False)
 	
 	print(counter, lines, c1, counter+lines, len(outdf))
 
 if __name__ == '__main__':
-	main()
+	parser = argparse.ArgumentParser(description=__doc__)
+	parser.add_argument("--qa_folder", type=str, default="corpus/quality_assessment")
+	args = parser.parse_args()
+	main(args)
+	
