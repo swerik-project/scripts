@@ -13,7 +13,7 @@ from functools import partial
 
 def main(args):
     
-    party_mapping, *dfs  = load_metadata(metadata_folder=f"{args.metadata_root}/corpus/metadata", processed_metadata_folder=f"{args.metadata_root}/input/matching")
+    party_mapping, *dfs  = load_metadata(metadata_location=f"{args.metadata_root}/corpus/metadata")
     ## DEPRECIATED ##join_intros['text'] = join_intros.apply(lambda x: join_text(x['text1'], x['text2']), axis=1)
     ## DEPRECIATED ##join_intros = join_intros.drop(['text1', 'text2'], axis=1)
 
