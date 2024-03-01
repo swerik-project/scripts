@@ -13,8 +13,10 @@ from pyriksdagen.dataset import IntroDataset
 from functools import partial
 import os
 
+
 def extract_elem(protocol, elem):
-	return elem.text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
+    return elem.text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
+
 
 def extract_note_seg(protocol):
     parser = etree.XMLParser(remove_blank_text=True)
@@ -26,6 +28,7 @@ def extract_note_seg(protocol):
         elif tag == 'u':
             data.extend(list(map(partial(extract_elem, protocol), elem)))
     return data
+
 
 def predict_intro(df, cuda):
     model = AutoModelForSequenceClassification.from_pretrained("jesperjmb/parlaBERT")
@@ -51,6 +54,8 @@ def predict_intro(df, cuda):
             intros.extend([[file_path, xml_id] for file_path, xml_id, pred in zip(file_path, xml_ids, preds) if pred == 1])
     return pd.DataFrame(intros, columns=['file_path', 'id'])
 
+
+
 def main(args):
     intros = []
     if args.protocol:
@@ -61,7 +66,11 @@ def main(args):
         print(df)
     else:
         # Create folder iterator for reasonably large batches
-        protocols = protocol_iterators(get_data_location("records"), start=args.start, end=args.end)
+        if args.records_folder is not None:
+            data_location = args.records_folder
+        else:
+            data_location = get_data_location("records")
+        protocols = protocol_iterators(data_location, start=args.start, end=args.end)
         protocols = [os.path.split(p) for p in protocols]
         protocol_df = pd.DataFrame(protocols, columns=['folder', 'file'])
         protocol_df = protocol_df.sort_values(by=['folder', 'file'])
@@ -81,10 +90,16 @@ def main(args):
     df.to_csv(args.outpath, index=False)
 
 
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
+    parser.add_argument("-r", "--records-folder",
+                        type=str,
+                        default=None,
+                        help="(optional) Path to records folder, defaults to environment var or `data/`")
     parser.add_argument("-p", "--protocol",
                     type=str,
                     default=None,
