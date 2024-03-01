@@ -1,13 +1,19 @@
 """
 Split protocol into <div> sections baseed on the paragraph sign '§' and other heuristics
 """
-from pyriksdagen.utils import protocol_iterators, infer_metadata
 from lxml import etree
-import numpy as np
-import pandas as pd
+from pyriksdagen.utils import (
+    get_data_location,
+    infer_metadata,
+    parse_protocol,
+    protocol_iterators,
+    write_protocol,
+)
 from tqdm import tqdm
 import argparse
-from multiprocessing import Pool
+import numpy as np
+import pandas as pd
+
 
 TEI_NS = "{http://www.tei-c.org/ns/1.0}"
 XML_NS = "{http://www.w3.org/XML/1998/namespace}"
@@ -40,8 +46,6 @@ def clean_next_prev(div, DEBUG):
     return div
 
 
-
-
 def create_divs(root, metadata, DEBUG):
     bodies = root.findall(f".//{TEI_NS}body")
     assert len(bodies) == 1
@@ -68,8 +72,6 @@ def create_divs(root, metadata, DEBUG):
     return root
 
 
-
-
 def clean_divs(root, DEBUG):
     divs = list(root.findall(f".//{TEI_NS}body/{TEI_NS}div"))
     if DEBUG: print(f"Cleaning {len(divs)} divs")
@@ -91,8 +93,6 @@ def clean_divs(root, DEBUG):
     return root
 
 
-
-
 def convert_u_heuristic(root):
     rows = []
     for div in list(root.findall(f".//{TEI_NS}div")) + list(root.findall(".//div")):
@@ -108,8 +108,6 @@ def convert_u_heuristic(root):
     return rows
 
 
-
-
 def nextprev_clean(root, DEBUG):
     divs = list(root.findall(f".//{TEI_NS}body/{TEI_NS}div"))
     if DEBUG: print(f"Cleaning {len(divs)} divs")
@@ -119,9 +117,7 @@ def nextprev_clean(root, DEBUG):
     return root
 
 
-
-
-def flow(root, rows, DEBUG):
+def flow(root, rows, metadata, DEBUG):
     if args.nextprev_only:
         if DEBUG: print("Only cleaning next/prev attribs")
         root = nextprev_clean(root, DEBUG)
@@ -143,34 +139,32 @@ def main(args):
     rows = []
     skip_counter = 0
     failures = []
-    parser = etree.XMLParser(remove_blank_text=True)
 
     if args.protocol:
         protocols = [args.protocol]
     else:
-        protocols = list(protocol_iterators(args.records_path, start=args.start, end=args.end))
-
-    for protocol in tqdm(protocols):
+        if args.records_folder is not None:
+            data_location = args.records_folder
+        else:
+            data_location = get_data_location("records")
+        protocols = sorted(list(protocol_iterators(data_location,
+                                                    start=args.start,
+                                                    end=args.end)))
+    for protocol in tqdm(protocols, total=len(protocols)):
         if DEBUG: print(protocol)
-
         if protocol in skip:
             if DEBUG: print("!!! SKIPPING")
             continue
-        root = etree.parse(protocol, parser).getroot()
-        
+        root = parse_protocol(protocol)
         metadata = infer_metadata(protocol)
         try:
-            root, rows = flow(root, rows, DEBUG)
+            root, rows = flow(root, rows, metadata, DEBUG)
         except Exception:
             skip_counter += 1
             failures.append(protocol)
             print(f"Problem with {protocol} ... Skipping ...")
         else:
-            b = etree.tostring(
-                root, pretty_print=True, encoding="utf-8", xml_declaration=True
-            )
-            with open(protocol, "wb") as f:
-                f.write(b)
+            write_protocol(root, protocol)
 
     if len(rows) > 0:
         df = pd.DataFrame(rows, columns=["id", "preds"])
@@ -184,12 +178,20 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--records_path", type=str, default="corpus/records")
     parser.add_argument("-s", "--start", type=int, default=1867, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-p", "--protocol", type=str, help="Provide a specific protocol")
+    parser.add_argument("-r", "--records-folder",
+                        type=str,
+                        default=None,
+                        help="(optional) Path to records folder, defaults to environment var or `data/`")
+    parser.add_argument("-p", "--protocol",
+                        type=str,
+                        default=None,
+                        help="operate on a single protocol")
     parser.add_argument("-d", "--debug", action="store_true", help="Print debug statements")
-    parser.add_argument("-c", "--nextprev-only", action="store_true", help="Only clean up next-prev attrs.")
+    parser.add_argument("-c", "--nextprev-only",
+                        action="store_true",
+                        help="Only clean up next-prev attrs.")
     parser.add_argument("--outpath", type=str, default="input/segmentation/section_heuristic_preds.csv")
     args = parser.parse_args()
     main(args)
