@@ -1,21 +1,19 @@
 """
 Run the classification into utterances and notes.
 """
+from lxml import etree
 from pyparlaclarin.refine import reclassify, random_classifier
-
-#from pyriksdagen.db import filter_db, load_patterns
 from pyriksdagen.utils import (
-    #infer_metadata,
     get_data_location,
     parse_protocol,
     protocol_iterators,
     write_protocol,
 )
-from lxml import etree
-import pandas as pd
-import progressbar
 import argparse
 import numpy as np
+import pandas as pd
+import progressbar
+
 
 TEI_NS = "{http://www.tei-c.org/ns/1.0}"
 
@@ -84,7 +82,6 @@ def get_filename_classifier(filename):
 
 
 def main(args):
-    parser = etree.XMLParser(remove_blank_text=True)
 
     if args.classfile is not None:
         classifier = get_filename_classifier(args.classfile)
@@ -107,7 +104,6 @@ def main(args):
 
     for protocol_path in progressbar.progressbar(protocols):
         print(protocol_path)
-        #metadata = infer_metadata(protocol_path)
         root = parse_protocol(protocol_path)
         root = reclassify(root, classifier, exclude=["date", "speaker"])
 
