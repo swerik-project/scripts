@@ -100,7 +100,10 @@ def main(args):
     if args.protocol:
         protocols = [args.protocol]
     else:
-        protocols = list(protocol_iterators(get_data_location("records"), start=args.start, end=args.end))
+        protocols = list(protocol_iterators(
+                        get_data_location("records"),
+                        start=args.start,
+                        end=args.end))
 
     for protocol_path in progressbar.progressbar(protocols):
         print(protocol_path)
