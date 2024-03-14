@@ -31,9 +31,15 @@ def add_protocol_id(protocol):
     parser = etree.XMLParser(remove_blank_text=True)
     root = etree.parse(protocol, parser).getroot()
     
+    # Accomodate both TEI and teiCorpus root
     tei = root.find(f"{tei_ns}TEI")
+    if root.tag.split("}")[-1] == "TEI":
+        tei = root
+
+    # Set ID for TEI element to be the filename
     tei.attrib[f"{xml_ns}id"] = protocol.split("/")[-1][:-4]
 
+    # Create UUIDs for other elements
     num_ids = 0
     for tag, elem in elem_iter(root):
         if tag == "u":
@@ -78,7 +84,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records_folder", type=str, default="corpus/records")
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
+    parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
+    parser.add_argument("-e", "--end", type=int, default=None, help="End year")
     args = parser.parse_args()
     main(args)
