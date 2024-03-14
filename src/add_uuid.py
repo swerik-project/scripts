@@ -20,7 +20,8 @@ def add_protocol_id(protocol):
         tei = root
 
     # Set ID for TEI element to be the filename
-    tei.attrib[f"{xml_ns}id"] = protocol.split("/")[-1][:-4]
+    if f"{xml_ns}id" not in tei.attrib:
+        tei.attrib[f"{xml_ns}id"] = protocol.split("/")[-1][:-4]
 
     # Create UUIDs for other elements
     num_ids = 0
