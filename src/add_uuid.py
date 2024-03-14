@@ -1,5 +1,7 @@
 """
-Add a randomly generated UUID to all elements in the XML ID field that are currently missing one.
+Add a randomly generated UUID to all elements in the XML ID attribute that are currently missing one.
+
+Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
 """
 from lxml import etree
 import argparse
