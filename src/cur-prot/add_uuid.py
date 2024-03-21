@@ -19,7 +19,6 @@ import multiprocessing
 
 
 def add_protocol_id(protocol):
-    print("add IDs")
     ids = set()
     num_ids = 0
 
@@ -99,6 +98,6 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--protocol",
                         type=str,
                         default=None,
-                        help="operate on a single protocol")
+                        help="operate on a single protocol. Set the full path -- this option doesn't cooperate with `-r`.")
     args = parser.parse_args()
     main(args)
