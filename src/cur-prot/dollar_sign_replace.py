@@ -91,7 +91,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
+    parser.add_argument("-s", "--start", type=int, default=1867, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     parser.add_argument("-r", "--records-folder",
                         type=str,
