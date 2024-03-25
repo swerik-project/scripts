@@ -1,35 +1,24 @@
-# Scripts
+# Scripts – Data curation and processing logic for the Swedish Parliament Corpus 
 
+## General setup and use
 
-
-## How to...
-
-### General setup and use
-
-#### Setting up an environment
+### Setting up an environment
 
 Set up a conda environment : Follow the steps [here](https://www.tensorflow.org/install/pip).
 
-With the environment active, pip install `scripts/requirements.txt` and `pyriksdagen/requirements.txt`.
+With the environment active, install the pyriksdagen module, either from PyPi
 
-#### Running the scripts
+```
+pip install pyriksdagen
+```
 
-Scripts are necessarily run from project root.
+or from a local copy in the [pyriksdagen repo](https://github.com/swerik-project/pyriksdagen)
 
-To be able to run the scripts from the project root, either (A) prepend it with defining PYTHONPATH in the following way
+```
+pip install .
+```
 
-```PYTHONPATH="$PYTHONPATH:." python scripts/resegment.py```
-
-or (B) install `pyriksdagen` in the python venv, e.g. by
-
-```cp -R pyriksdagen ~/miniconda3/envs/tf/lib/python3.9/site-packages/```
-
-(Check that the path is really where your environment is. Strategy (B) would need to be repeated after any changes to pyriksdagen, as they wouldn't be automatically propagated to the conda env. 
-
-This should change – how to we "push" updates to pypi? Do we want that to be a possibility.
-
-
-#### The LazyArchive
+### The LazyArchive
 
 The `LazyArchive()` class attempts to connect to the KB labs in the lazyest way possible. If you'll use the scripts often, it's worthwhile to set 3 environment variables:
 
@@ -40,8 +29,7 @@ The `LazyArchive()` class attempts to connect to the KB labs in the lazyest way 
 They can be added to the environment variables, e.g. `~/miniconda3/envs/tf/etc/conda/activate.d/env_vars.sh`. If these are not present, you will be prompted for the username and password.
 
 
-
-### Curating data
+## Curating data
 
 
 Most scripts take `--start` YEAR and `--end` YEAR arguments to define a span of time to operate on. Other options are noted in with the file below.
@@ -49,8 +37,6 @@ Most scripts take `--start` YEAR and `--end` YEAR arguments to define a span of 
 -1. Create new curation branch from dev.
 
 	git checkout -b curation-<decade_start_year>s dev
-
-0. UPDATE PYRIKSDAGEN from pypi
 
 1. Generate an input csv by querying protocol packages using `scripts/query2csv.py`
 	- this creates `input/protocols/scanned.csv` or `input/protocols/digital_originals.csv`, to be read by `scripts/pipeline.py`
@@ -96,7 +82,7 @@ Most scripts take `--start` YEAR and `--end` YEAR arguments to define a span of 
 14. Run `scripts/split_into_sections.py`.
 
 
-### Quality Control
+## Quality Control
 
 1. generate a sample for by decade with `sample_pages_new.py`. 
 	- This generates a csv file in `input/quality_control/sample_<decade-start-year>.csv` and a list of protocols in the sample `input/quality_control/sample_<decade-start-year>.txt`
