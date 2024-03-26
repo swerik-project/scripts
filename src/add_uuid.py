@@ -6,42 +6,55 @@ Also adds the document ID (eg. prot-year--number) in the TEI element as an XML I
 from lxml import etree
 import argparse
 from pyriksdagen.utils import elem_iter, protocol_iterators, get_formatted_uuid
+from pyriksdagen.utils import TEI_NS, XML_NS
 from tqdm import tqdm
 import multiprocessing
 
 def add_protocol_id(protocol):
     ids = set()
-    tei_ns = ".//{http://www.tei-c.org/ns/1.0}"
-    xml_ns = "{http://www.w3.org/XML/1998/namespace}"
     parser = etree.XMLParser(remove_blank_text=True)
     root = etree.parse(protocol, parser).getroot()
     
     # Accomodate both TEI and teiCorpus root
-    tei = root.find(f"{tei_ns}TEI")
+    tei = root.find(f"{TEI_NS}TEI")
     if root.tag.split("}")[-1] == "TEI":
         tei = root
 
     # Set ID for TEI element to be the filename
-    if f"{xml_ns}id" not in tei.attrib:
-        tei.attrib[f"{xml_ns}id"] = protocol.split("/")[-1][:-4]
+    if f"{XML_NS}id" not in tei.attrib:
+        tei.attrib[f"{XML_NS}id"] = protocol.split("/")[-1][:-4]
 
     # Create UUIDs for other elements
     num_ids = 0
     for tag, elem in elem_iter(root):
         if tag == "u":
             for subelem in elem:
-                x = subelem.attrib.get(f'{xml_ns}id', get_formatted_uuid())
-                subelem.attrib[f'{xml_ns}id'] = x
+                x = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+                subelem.attrib[f'{XML_NS}id'] = x
                 ids.add(x)
                 num_ids += 1
-            x = elem.attrib.get(f'{xml_ns}id', get_formatted_uuid())
-            elem.attrib[f'{xml_ns}id'] = x
+            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
                 
         elif tag in ["note"]:
-            x = elem.attrib.get(f'{xml_ns}id', get_formatted_uuid())
-            elem.attrib[f'{xml_ns}id'] = x
+            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
+            ids.add(x)
+            num_ids += 1
+
+    for body in root.findall(f".//{TEI_NS}body"):
+        for div in body:
+            elem_id_list = [elem.attrib.get(f'{XML_NS}id') for elem in div]
+            elem_id_list = [elem_id for elem_id in elem_id_list if elem_id is not None]
+            elem_id_list = '\n'.join(elem_id_list)
+            seed_str =  f"div\n{elem_id_list}"
+            new_div_id = get_formatted_uuid(seed_str)
+            if f'{XML_NS}id' not in div.attrib:
+                print(seed_str, new_div_id)
+            x = div.get(f'{XML_NS}id', new_div_id)
+            div.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
 
