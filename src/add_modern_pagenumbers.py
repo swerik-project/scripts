@@ -20,6 +20,11 @@ tei_ns = ".//{http://www.tei-c.org/ns/1.0}"
 xml_ns = "{http://www.w3.org/XML/1998/namespace}"
 parser = etree.XMLParser(remove_blank_text=True)
 
+def pad_nr(protocol):
+    spl = protocol.split('-')
+    spl[-1] = f"{spl[-1][:4]:0>3}"
+    return '-'.join(spl)
+
 def populate_protocol(jsonpath, rawpath):
     with open(jsonpath, encoding='utf-8-sig') as f:
         d = json.load(f)
@@ -46,7 +51,7 @@ def populate_protocol(jsonpath, rawpath):
     protocol_number = d["dokument"]["nummer"]
     protocol_id = f"prot-{gathering_year}--{protocol_number}"
     riksdagen_protocol_id = d["dokument"]["dok_id"]
-    xmlpath = f"corpus/protocols/{gathering_year}/{protocol_id}.xml"
+    xmlpath = f"riksdagen-records/data/{gathering_year}/{pad_nr(protocol_id)}.xml"
     if not Path(xmlpath).exists():
         #warnings.warn(f"Protocol file {xmlpath} missing! Skipping...")
         logging.error(f'Protocol file {xmlpath} missing! Skipping...')
