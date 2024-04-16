@@ -94,7 +94,7 @@ def plot(df):
     for i, l in enumerate(lines, -len(lines)):
         l.set_zorder(abs(i))
     a.axhline(y=1, color='green', linestyle='--', linewidth=1, label='_nolegend_')
-    a.set_title("Ratio: members of parliament to seats")
+    #a.set_title("Ratio: members of parliament to seats")
     a.spines['top'].set_visible(False)
     a.spines['right'].set_visible(False)
     p.savefig(f"input/plots/LREC/mp-coverage-ratio.pdf", dpi=300, format='pdf')

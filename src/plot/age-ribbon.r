@@ -27,7 +27,7 @@ p <- ages2 %>% ggplot(aes(x=year)) +
     geom_ribbon(aes(ymin=fquant, ymax=tquant), fill='grey60') +
     geom_line(aes(y=mean)) +
     ylim(30, 70) +
-    labs(y = "age distribution") +
+    labs(y = "Age") +
     theme(
         panel.background = element_rect(fill = 'white',
                                         colour = 'gray',

@@ -111,7 +111,7 @@ def plot_gender_line2(gender_df, out):
         if int(_.get_text()) % 20 != 0:
             _.set_visible(False)
             #ticks[i].set_visible(False)
-    p.suptitle("Proportion of female members of parliament")
+    #p.suptitle("Proportion of female members of parliament")
     p.set_size_inches(7,6)
     p.tight_layout()
     plt.savefig(f"{out}/prop-female2.pdf", format='pdf', dpi=300)
@@ -129,13 +129,13 @@ def main(args):
     D = mk_year_d()
 
     age_df, gen_df = mk_year_dfs(D, person)
-    #plot_gender_line2(gender_preprocess(gen_df), args.output_path)
+    plot_gender_line2(gender_preprocess(gen_df), args.output_path)
 
     age_df["year"] = age_df['year'].apply(lambda x: str(x)[:4])
     age_df.to_csv(f"{args.output_path}/ages.csv")
     p = subprocess.Popen("scripts/src/plot/age-ribbon.r")
     p.wait()
-    #os.remove(f"{args.output_path}/ages.csv")
+    os.remove(f"{args.output_path}/ages.csv")
 
     print(len(person), len(D))
 

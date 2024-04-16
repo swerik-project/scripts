@@ -10,11 +10,11 @@ from pyriksdagen.utils import (
     protocol_iterators,
 )
 from tqdm import tqdm
-import argparse
+import argparse, os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import pandas as pd
-
+here = os.path.dirname(__file__)
 
 
 
@@ -100,6 +100,7 @@ def main(args):
         rows.append([int(k), v, p[k], s[k], w[k]])
     df = pd.DataFrame(rows, columns = cols)
     print(df)
+    df.to_csv(f"{here}/psw-output.csv")
     print("\n\nPlotting")
     plot(df, args.output_path)
 
