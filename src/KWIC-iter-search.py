@@ -51,9 +51,6 @@ def append_matches(matches, counter, rows,
 
 def main(args):
     try:
-        records_path = os.environ.get("RECORDS_ABSPATH", None)
-        assert records_path != None
-    except NoRecordsAbspath:
         records_path = os.environ.get("RECORDS_PATH", None)
         assert records_path != None
     except:
@@ -66,7 +63,13 @@ def main(args):
         pattern = re.compile(rf'{args.regex_keyword}')
     elif args.regex_fromfile:
         with open(args.regex_fromfile, 'r') as rq:
-            pattern = re.compile(rf"{rq.read().strip()}")
+            raw = rq.readlines()
+            medium = [_.strip() for _ in raw]
+            well = [_.replace(' ', '') for _ in medium]
+            print(well)
+            pat = rf"{''.join(well)}"
+            print(pat)
+            pattern = re.compile(rf"{''.join(well)}")
 
     search_u = True
     search_note = True
@@ -125,7 +128,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,  formatter_class=RawTextHelpFormatter)
     parser.add_argument("-s", "--start", type=int, default=1867, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
+    parser.add_argument("-e", "--end", type=int, default=2023, help="End year")
     parser.add_argument("-c", "--chamber",
                         type=str, choices=["fk", "ak"],
                         default=None,
