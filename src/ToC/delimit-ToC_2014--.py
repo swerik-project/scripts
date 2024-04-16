@@ -7,6 +7,7 @@ N.B. Two files ['corpus/protocols/201718/prot-201718--101.xml', 'corpus/protocol
 from copy import deepcopy
 from lxml import etree
 from pyriksdagen.utils import (
+    get_data_location,
     get_formatted_uuid,
     parse_protocol,
     protocol_iterators,
@@ -101,7 +102,14 @@ def find_toc(protocol, debug):
 
 def main(args):
 
-    protocols = sorted(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end)))
+    if args.records_folder is not None:
+        data_location = args.records_folder
+    else:
+        data_location = get_data_location("records")
+    protocols = sorted(list(protocol_iterators(
+                                    data_location,
+                                    start=args.start, end=args.end)))
+
     for p in protocols:
         print(p)
         root = find_toc(p, args.debug)
@@ -124,6 +132,10 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     parser.add_argument("-d", "--debug", action='store_true', help="Print debug info")
     parser.add_argument("-n", "--dry-run", action='store_true', help="Don't actually write the files.")
+    parser.add_argument("-r", "--records-folder",
+                        type=str,
+                        default=None,
+                        help="(optional) Path to records folder, defaults to environment var or `data/`")
     args = parser.parse_args()
     main(args)
 
