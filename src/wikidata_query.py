@@ -4,9 +4,8 @@ Query wikidata for metadata, process it and save it in corpus/metadata
 from SPARQLWrapper import SPARQLWrapper, JSON
 import numpy as np
 import pandas as pd
-import os, argparse
-import time
-import re
+import argparse, os, re, time
+from pyriksdagen.data import queries as pyriksdagen_queries
 from pyriksdagen.wikidata import (
 	query2df,
 	separate_name_location,
@@ -39,6 +38,17 @@ def track_missing_id(df, l, id_map=None):
 
 def main(args):
 	# Change query path to be from module!
+
+	if args.metadata_folder:
+		metadata_folder = args.metadata_folder
+	else:
+		metadata_folder = get_data_location("metadata")
+
+	if args.query_folder:
+		query_folder = args.query_folder
+	else:
+		query_folder = pyriksdagen_queries.__path__._path[0]
+
 	if args.queries:
 		queries = args.queries
 	else:
