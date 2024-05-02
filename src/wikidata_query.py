@@ -7,12 +7,14 @@ import pandas as pd
 import os, argparse
 import time
 import re
+from pyriksdagen.utils import get_data_location
 from pyriksdagen.wikidata import (
 	query2df,
 	separate_name_location,
 	move_party_to_party_df,
 	elongate_external_ids,
 )
+from pyriksdagen.data import queries as pyriksdagen_queries
 from pyriksdagen.db import clean_person_duplicates
 from pathlib import Path
 
@@ -38,12 +40,16 @@ def track_missing_id(df, l, id_map=None):
 	return df.reset_index(drop=True), l
 
 def main(args):
-	# Change query path to be from module!
 	if args.queries:
 		queries = args.queries
 	else:
-		queries = sorted([q.stem for q in Path(args.query_folder).glob('*.rq')])
+		queries = sorted([q.stem for q in Path(pyriksdagen_queries.__path__._path[0]).glob('*.rq')])
 	input_folders = ['name_location_specifier', 'alias', "member_of_parliament", "party_affiliation"]
+
+	if args.metadata_folder:
+		metadata_folder = args.metadata_folder
+	else:
+		metadata_folder = get_data_location("metadata")
 
 	# Query for and store cleaned versions of metadata
 	d = {}
@@ -54,7 +60,7 @@ def main(args):
 		id_map = query2df("wiki_id", args.source)
 		print(type(id_map))
 		id_map = id_map.drop_duplicates()
-		id_map.to_csv(f'{args.metadata_folder}/wiki_id.csv', index=False)
+		id_map.to_csv(f'{metadata_folder}/wiki_id.csv', index=False)
 
 	for q in queries:
 		if q == "wiki_id":
@@ -84,7 +90,7 @@ def main(args):
 			df = elongate_external_ids(df)
 
 		# Store files needing additional preprocessing in input
-		folder = args.metadata_folder if not q in input_folders else args.input_metadata_folder
+		folder = metadata_folder if not q in input_folders else args.input_metadata_folder
 		if folder == args.input_metadata_folder:
 			d[q] = df
 
@@ -100,12 +106,12 @@ def main(args):
 			if key not in queries:
 				d['key'] = pd.read_csv(f'{args.input_metadata_folder}/{key}.csv')
 		name, loc = separate_name_location(d['name_location_specifier'], d['alias'])
-		name.to_csv(f'{args.metadata_folder}/name.csv', index=False)
-		loc.to_csv(f'{args.metadata_folder}/location_specifier.csv', index=False)
+		name.to_csv(f'{metadata_folder}/name.csv', index=False)
+		loc.to_csv(f'{metadata_folder}/location_specifier.csv', index=False)
 
 		mp_df, party_df = move_party_to_party_df(d['member_of_parliament'], d['party_affiliation'])
-		mp_df.to_csv(f'{args.metadata_folder}/member_of_parliament.csv', index=False)
-		party_df.to_csv(f'{args.metadata_folder}/party_affiliation.csv', index=False)
+		mp_df.to_csv(f'{metadata_folder}/member_of_parliament.csv', index=False)
+		party_df.to_csv(f'{metadata_folder}/party_affiliation.csv', index=False)
 
 	if len(no_swerik_id) > 0:
 		print("Some entities returned in the queries seem not to have a swerik ID. Check and add an ID, then requery.")
@@ -116,8 +122,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input_metadata_folder', type=str, default="input/metadata")
-    parser.add_argument('--metadata_folder', type=str, default="corpus/metadata")
-    parser.add_argument('--query_folder', type=str, default="pyriksdagen/data/queries")
+    parser.add_argument('--metadata_folder', type=str, default=None)
+    parser.add_argument('--query_folder', type=str, default=None)
     parser.add_argument('-q', '--queries', default=None, nargs='+', help='One or more sparql query files (separated by space)')
     parser.add_argument('-s', '--source', default=None, nargs='+', help='One or more of member_of_parliament | minister | speaker (separated by space)')
     args = parser.parse_args()
