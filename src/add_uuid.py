@@ -1,55 +1,60 @@
 """
-Add a randomly generated UUID to all elements in the XML ID field that are currently missing one.
+Add a randomly generated UUID to all elements in the XML ID attribute that are currently missing one.
+
+Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
 """
 from lxml import etree
-import pandas as pd
-import json, math
-import os, argparse
-from datetime import datetime
-from pyparlaclarin.refine import (
-    format_texts,
-)
-
-from pyriksdagen.db import filter_db, load_patterns, load_metadata
-from pyriksdagen.refine import (
-    redetect_protocol,
-    detect_mps,
-    find_introductions,
-    update_ids,
-)
-from pyriksdagen.utils import infer_metadata, parse_date, elem_iter, protocol_iterators, get_formatted_uuid
-from pyriksdagen.match_mp import clean_names, multiple_replace
+import argparse
+from pyriksdagen.utils import elem_iter, protocol_iterators, get_formatted_uuid
+from pyriksdagen.utils import TEI_NS, XML_NS
 from tqdm import tqdm
 import multiprocessing
-import uuid
-import base58
 
 def add_protocol_id(protocol):
     ids = set()
-    tei_ns = ".//{http://www.tei-c.org/ns/1.0}"
-    xml_ns = "{http://www.w3.org/XML/1998/namespace}"
     parser = etree.XMLParser(remove_blank_text=True)
     root = etree.parse(protocol, parser).getroot()
     
-    tei = root.find(f"{tei_ns}TEI")
-    tei.attrib[f"{xml_ns}id"] = protocol.split("/")[-1][:-4]
+    # Accomodate both TEI and teiCorpus root
+    tei = root.find(f"{TEI_NS}TEI")
+    if root.tag.split("}")[-1] == "TEI":
+        tei = root
 
+    # Set ID for TEI element to be the filename
+    if f"{XML_NS}id" not in tei.attrib:
+        tei.attrib[f"{XML_NS}id"] = protocol.split("/")[-1][:-4]
+
+    # Create UUIDs for other elements
     num_ids = 0
     for tag, elem in elem_iter(root):
         if tag == "u":
             for subelem in elem:
-                x = subelem.attrib.get(f'{xml_ns}id', get_formatted_uuid())
-                subelem.attrib[f'{xml_ns}id'] = x
+                x = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+                subelem.attrib[f'{XML_NS}id'] = x
                 ids.add(x)
                 num_ids += 1
-            x = elem.attrib.get(f'{xml_ns}id', get_formatted_uuid())
-            elem.attrib[f'{xml_ns}id'] = x
+            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
                 
         elif tag in ["note"]:
-            x = elem.attrib.get(f'{xml_ns}id', get_formatted_uuid())
-            elem.attrib[f'{xml_ns}id'] = x
+            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
+            ids.add(x)
+            num_ids += 1
+
+    for body in root.findall(f".//{TEI_NS}body"):
+        for div in body:
+            elem_id_list = [elem.attrib.get(f'{XML_NS}id') for elem in div]
+            elem_id_list = [elem_id for elem_id in elem_id_list if elem_id is not None]
+            elem_id_list = '\n'.join(elem_id_list)
+            seed_str =  f"div\n{elem_id_list}"
+            new_div_id = get_formatted_uuid(seed_str)
+            if f'{XML_NS}id' not in div.attrib:
+                print(seed_str, new_div_id)
+            x = div.get(f'{XML_NS}id', new_div_id)
+            div.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
 
@@ -78,7 +83,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records_folder", type=str, default="corpus/records")
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
+    parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
+    parser.add_argument("-e", "--end", type=int, default=None, help="End year")
     args = parser.parse_args()
     main(args)

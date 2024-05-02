@@ -15,8 +15,7 @@ def main(args):
     pattern = "([A-ZÀ-Þ]{2,10})(- )([A-ZÀ-Þ]{2,10})"
     e = re.compile(pattern)
 
-    protocols = sorted(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end)))
-    #print(protocols)
+    protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
     parser = etree.XMLParser(remove_blank_text=True)
 
     for protocol in tqdm(protocols, total=len(protocols)):
@@ -42,6 +41,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--records_folder", type=str, default="corpus/records")
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     args = parser.parse_args()
