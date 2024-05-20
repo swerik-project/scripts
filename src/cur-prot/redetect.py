@@ -52,6 +52,10 @@ def main(args):
     unknowns.drop_duplicates().to_csv(f"{args.processed_metadata_folder}/unknowns.csv", index=False)
 
 
+    print("redetect seems to have finished successfully. Now run `cur-mot/split_into_sections --nextprev-only`.")
+    # TODO: move abovementioned --nextprev-only function to pyriksdagen; import and run here
+
+
 
 
 if __name__ == "__main__":
