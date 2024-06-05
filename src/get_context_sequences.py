@@ -15,7 +15,7 @@ def cleanup_segments(text_seq):
     return text_seq_string
 
 ####    functions to create context sequences from multiple strings ####
-def concat_sequences_left(previous_sequence, current_sequence, target_length = 128):
+def concat_sequences_left(previous_sequence, current_sequence, target_length = 120):
     # if previous sequence is long, we want it to be no more than half of context sequence
     max_previous_length = target_length//2
     
@@ -40,7 +40,7 @@ def concat_sequences_left(previous_sequence, current_sequence, target_length = 1
     # use new line (/n) as token to signify where current sequence begings
     return prev_last_sentence + ' /n ' + current_sequence
 
-def concat_sequences_full(previous_sequence, current_sequence, next_sequence, target_length = 128):
+def concat_sequences_full(previous_sequence, current_sequence, next_sequence, target_length = 120):
     # if previous sequence is long, we want it to be no more than half of context sequence
     max_previous_length = target_length//3
     
@@ -73,7 +73,7 @@ def concat_sequences_full(previous_sequence, current_sequence, next_sequence, ta
     # use new line (/n) as token to signify where current sequence begings
     return prev_last_sentence + ' /n ' + current_sequence + ' /n ' + next_first_sentence
 
-def get_context_sequence_left(protocol, max_length = 128):
+def get_context_sequence_left(protocol, max_length = 120):
     id_list = []
     context_sequence_list = []
     
@@ -106,7 +106,7 @@ def get_context_sequence_left(protocol, max_length = 128):
                    'context_sequence' : context_sequence_list}
     return output_dict
 
-def get_context_sequence_full(protocol, max_length = 128):
+def get_context_sequence_full(protocol, max_length = 120):
     id_list = []
     context_sequence_list = []
     
