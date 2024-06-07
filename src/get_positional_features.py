@@ -1,6 +1,6 @@
 from lxml import etree
 import argparse
-from pyriksdagen.utils import elem_iter, protocol_iterators, infer_metadata
+from pyriksdagen.utils import elem_iter, protocol_iterators, infer_metadata, XML_NS
 import pyriksdagen.download as pydl
 from difflib import SequenceMatcher
 import pandas as pd
@@ -29,7 +29,7 @@ def unicameral_bin(chamber):
         return 0
     
 def even_or_odd(x):
-        if x & 1 == 0:
+        if x % 2 == 0:
             return 1
         else:
             return 0
@@ -38,23 +38,21 @@ def relative_page_number(x, max_x):
     try:
         output = (x/max_x)*1000
     except:
-        output = 0
+        output = 0.0
     return output
 
 def cleanup_segments(text_seq):
     # function to remove whitespace from string to get comparable text between corpus and kblab
-    text_seq = text_seq.translate({ord('\n'): ' '})
-    text_seq = text_seq.split(' ')
+    text_seq = text_seq.split()
     text_seq_list = [s for s in text_seq if s != '']
-    text_seq_string = ' '.join(text_seq_list).strip()
+    text_seq_string = ' '.join(text_seq_list)
     return text_seq_string
 
 def get_positional_features(protocol):
     # function to get positional features which can be parsed from xml-files
     
-    id_key = '{http://www.w3.org/XML/1998/namespace}id'
-    year_str = protocol.split('\\')[-2][:4]
-    year = int(year_str)
+    id_key = f"{XML_NS}id"
+    year = infer_metadata(protocol)['year']
     chamber = get_chamber(protocol)
 
     id_list = []
