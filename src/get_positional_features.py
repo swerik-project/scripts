@@ -6,7 +6,6 @@ from difflib import SequenceMatcher
 import pandas as pd
 import progressbar
 
-# file which code to get positional features will be added
 #### functions to get position features from xml files ####
 def get_chamber(protocol):
     protocol_dir_list = protocol.split('-')
@@ -208,20 +207,25 @@ def get_page_xml(pkg, pkg_name, page_number):
 def matching_index(l, x):
     return [i for i, n in enumerate(l) if n == x]
 
-def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_speech):
+def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_speech, page_number_offset = 0):
     # all sequences on page need to be supplied to function
     # sequences need to be supplied in order
+    page_found = False
     
-    try:
-        xml_tree = get_page_xml(pkg, pkg_name, page_number)
-    except:
-        null_data = [None for x in target_sequences]
-        matched_sequences = null_data
-        matched_positions = null_data
-        matched_page_size = null_data
-        matched_similarities = null_data
-        
-        return matched_sequences, matched_positions, matched_page_size, matched_similarities
+    while page_found == False:
+        try:
+            xml_tree = get_page_xml(pkg, pkg_name, page_number + page_number_offset)
+            page_found = True
+        except:
+            page_number_offset += 1
+            if page_number_offset == 100:
+                # treat as null data
+                matched_sequences = [None for x in target_sequences]
+                matched_positions = [(None, None, None, None) for x in target_sequences]
+                matched_similarities = [None for x in target_sequences]
+                matched_page_size = [(None, None) for x in target_sequences]
+                return matched_sequences, matched_positions, matched_page_size, matched_similarities, 0
+                
     #output
     matched_sequences = []
     matched_positions = []
@@ -234,6 +238,7 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
     block_pos = [9999.0, 9999.0, 0.0, 0.0]
     prev_block = 0
     split_word_count = 0
+    n_colons_in_curr_sequence = 0
     
     # loop through elements on page
     for elem in xml_tree.iter():
@@ -293,22 +298,26 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
                     curr_sequence_list.append(curr_word)
                 
                 if target_is_intro_speech[0] == 1:
+                    n_colons_in_target_sequence = target_sequences[0].count(':')
                     word_pos = [attrib['HPOS'], attrib['VPOS'], attrib['WIDTH'], attrib['HEIGHT']]
                     curr_pos = update_block_position(curr_pos, get_img_box(word_pos))
                     if ':' in curr_word:
-                        curr_sequence = ' '.join(curr_sequence_list)
-                        curr_colon_split = curr_sequence.split(':')
-                        curr_seq_0 = curr_colon_split[0]
-                        curr_seq_1 = ':'.join(curr_colon_split[1:])
-                        
-                        matched_sequences.append(curr_seq_0 + ':')
-                        matched_positions.append(curr_pos)
-                        matched_similarities.append(string_similarity(target_sequences[0], curr_seq_0))
-                        curr_pos = get_img_box(word_pos)
-                        target_sequences.pop(0)
-                        target_is_intro_speech.pop(0)
-                        
-                        curr_sequence_list = curr_seq_1.split(' ')
+                        n_colons_in_curr_sequence += 1
+                        if n_colons_in_target_sequence == n_colons_in_curr_sequence:
+                            curr_sequence = ' '.join(curr_sequence_list)
+                            curr_colon_split = curr_sequence.split(':')
+                            curr_seq_0 = ':'.join(curr_colon_split[:n_colons_in_target_sequence])
+                            curr_seq_1 = ':'.join(curr_colon_split[n_colons_in_target_sequence:])
+                            
+                            matched_sequences.append(curr_seq_0)
+                            matched_positions.append(curr_pos)
+                            matched_similarities.append(string_similarity(target_sequences[0], curr_seq_0))
+                            curr_pos = get_img_box(word_pos)
+                            target_sequences.pop(0)
+                            target_is_intro_speech.pop(0)
+                            
+                            curr_sequence_list = curr_seq_1.split(' ')
+                            n_colons_in_curr_sequence = 0
         
         if len(target_sequences) == 0:
             break
@@ -325,8 +334,9 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
         target_sequences.pop(0)
     # add width and height
     matched_page_size = [(page_width, page_height) for x in range(len(matched_sequences))]
+
     # return sequences from alto files and positions to verify match
-    return matched_sequences, matched_positions, matched_page_size, matched_similarities
+    return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
 
 def add_coord_to_dict(protocol, pos_dict, archive):
     pkg_name = get_pkg_name(protocol)
@@ -339,27 +349,47 @@ def add_coord_to_dict(protocol, pos_dict, archive):
     widths = []
     heights = []
     similarities = []
+    offsets = []
     
     # iterate through each page of the protocol
     page_numbers = pos_dict['page_number']
-    unique_page_numbers = set(page_numbers)
+    unique_page_numbers = sorted(set(page_numbers))
+    page_number_offset = 0
+    n_failed_pages = 0
     for page_number in unique_page_numbers:
         indices = matching_index(page_numbers, page_number)
         
-        # input to get_page_pos() used to get coordinates
-        target_sequences = pos_dict['text'][indices[0]:(indices[-1]+1)]
-        target_is_intro_speech = pos_dict['intro_speech'][indices[0]:(indices[-1]+1)]
-        
         # get coordinates and other features 
-        page_text, page_coord, page_width_height, page_similarities = get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_speech)
-
+        correct_matched_length = False
+        while correct_matched_length == False:
+            # input to get_page_pos() used to get coordinates
+            target_sequences = pos_dict['text'][indices[0]:(indices[-1]+1)]
+            target_is_intro_speech = pos_dict['intro_speech'][indices[0]:(indices[-1]+1)]
+            page_text, page_coord, page_width_height, page_similarities, page_number_offset = get_page_pos(pkg, pkg_name, page_number, 
+                                                                                                       target_sequences, target_is_intro_speech,
+                                                                                                       page_number_offset)
+         
+            if len(page_text) == len(pos_dict['text'][indices[0]:(indices[-1]+1)]):
+                correct_matched_length = True
+            else:
+                page_number_offset += 1
+                if (page_number_offset > 25) | (n_failed_pages > 5):
+                    # restart and treat page as null data
+                    correct_matched_length = True
+                    page_number_offset = 0
+                    page_coord = [(None, None, None, None) for x in range(len(pos_dict['text'][indices[0]:(indices[-1]+1)]))]
+                    page_width_height = [(None, None) for x in range(len(pos_dict['text'][indices[0]:(indices[-1]+1)]))]
+                    page_similarities = [None for x in range(len(pos_dict['text'][indices[0]:(indices[-1]+1)]))]
+                    n_failed_pages += 1
+                    
+                    
         page_pos_left = [x[0] for x in page_coord]
         page_pos_upper = [x[1] for x in page_coord]
         page_pos_right = [x[2] for x in page_coord]
         page_pos_lower = [x[3] for x in page_coord]
         page_width = [x[0] for x in page_width_height]
         page_height = [x[1] for x in page_width_height]
-        
+
         # add outputs to list
         pos_lefts.extend(page_pos_left)
         pos_uppers.extend(page_pos_upper)
@@ -368,6 +398,7 @@ def add_coord_to_dict(protocol, pos_dict, archive):
         widths.extend(page_width)
         heights.extend(page_height)
         similarities.extend(page_similarities)
+        offsets.extend([page_number_offset for x in page_pos_left])
         
     # add outputs to dict
     pos_dict['posLeft'] = pos_lefts
@@ -377,6 +408,7 @@ def add_coord_to_dict(protocol, pos_dict, archive):
     pos_dict['width'] = widths
     pos_dict['height'] = heights
     pos_dict['similarities'] = similarities
+    pos_dict['page_offset'] = offsets
     
     # return dict with all features
     return pos_dict
@@ -386,6 +418,7 @@ def main(args):
     feature_dict = {'id': [],
                 'record': [],
                 'page_number': [],
+                'page_offset' : [],
                 'posLeft' : [],
                 'posUpper' : [],
                 'posRight' : [],
@@ -403,7 +436,6 @@ def main(args):
     
     curr_year = protocols[0].split('\\')[-2]
     for protocol in progressbar.progressbar(protocols):
-        
         next_year = protocol.split('\\')[-2]
         if curr_year != next_year:
             output_df = pd.DataFrame.from_dict(feature_dict)
@@ -415,6 +447,7 @@ def main(args):
             feature_dict = {'id': [],
                 'record': [],
                 'page_number': [],
+                'page_offset' : [],
                 'posLeft' : [],
                 'posUpper' : [],
                 'posRight' : [],
@@ -449,6 +482,7 @@ def main(args):
         feature_dict['unicameral'].extend(protocol_feature_dict['unicameral'])
         feature_dict['width'].extend(protocol_feature_dict['width'])
         feature_dict['height'].extend(protocol_feature_dict['height'])
+        feature_dict['page_offset'].extend(protocol_feature_dict['page_offset'])
     
     # store features in dataframe and save to disk
     save_file = curr_year + '_position_features.csv'
