@@ -175,8 +175,6 @@ def main(args):
         context_seq_func = get_context_sequence_left
     elif args.context_type == 'full_context':
         context_seq_func = get_context_sequence_full
-    else:
-        raise Exception(f'{args.context_type} is an invalid context type. Valid inputs are: [left_context, full_context]')
     
     protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
     curr_year = protocols[0].split('\\')[-2]
@@ -210,6 +208,6 @@ if __name__ == "__main__":
     parser.add_argument("--records_folder", type=str, default="corpus/records")
     parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=None, help="End year")
-    parser.add_argument("--context_type", type=str, default='left_context')
+    parser.add_argument("--context_type", type=str, choices = ['left_context', 'full_context'])
     args = parser.parse_args()
     main(args)
