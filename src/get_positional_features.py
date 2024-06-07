@@ -400,7 +400,7 @@ def main(args):
         next_year = infer_metadata(protocol)['year']
         if curr_year != next_year:
             output_df = pd.DataFrame.from_dict(feature_dict)
-            save_file = str(curr_year) + '_position_features.csv'
+            save_file = args.save_folder + str(curr_year) + '_position_features.csv'
             output_df.to_csv(save_file, index = False)
 
             curr_year = next_year
@@ -446,7 +446,7 @@ def main(args):
         feature_dict['page_offset'].extend(protocol_feature_dict['page_offset'])
     
     # store features in dataframe and save to disk
-    save_file = str(curr_year) + '_position_features.csv'
+    save_file = args.save_folder + str(curr_year) + '_position_features.csv'
     output_df = pd.DataFrame.from_dict(feature_dict)
     output_df.to_csv(save_file, index = False)
 
@@ -454,6 +454,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records_folder", type=str, default="corpus/records")
+    parser.add_argument("--save_folder", type=str)
     parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=None, help="End year")
     args = parser.parse_args()

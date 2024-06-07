@@ -136,7 +136,7 @@ def main(args):
         
         if curr_year != next_year:
             output_df = pd.DataFrame.from_dict(context_sequence_dict)
-            save_file = str(curr_year) + '_' + args.context_type + '.csv'
+            save_file = args.save_folder + str(curr_year) + '_' + args.context_type + '.csv'
             output_df.to_csv(save_file, index = False)
             
             # reset pooling dict
@@ -150,12 +150,13 @@ def main(args):
         context_sequence_dict['context_sequence'].extend(protocol_context_sequence_dict['context_sequence'])
     
     output_df = pd.DataFrame.from_dict(context_sequence_dict)
-    save_file = str(curr_year) + '_' + args.context_type + '.csv'
+    save_file = args.save_folder + str(curr_year) + '_' + args.context_type + '.csv'
     output_df.to_csv(save_file, index = False)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records_folder", type=str, default="corpus/records")
+    parser.add_argument("--save_folder", type=str)
     parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=None, help="End year")
     parser.add_argument("--context_type", type=str, choices = ['left_context', 'full_context'])
