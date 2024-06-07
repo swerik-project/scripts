@@ -1,6 +1,6 @@
 from lxml import etree
 import argparse
-from pyriksdagen.utils import elem_iter, protocol_iterators
+from pyriksdagen.utils import elem_iter, protocol_iterators, infer_metadata
 import pyriksdagen.download as pydl
 from difflib import SequenceMatcher
 import pandas as pd
@@ -434,12 +434,12 @@ def main(args):
     archive = pydl.LazyArchive()
     protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
     
-    curr_year = protocols[0].split('\\')[-2]
+    curr_year = infer_metadata(protocols[0])['year']
     for protocol in progressbar.progressbar(protocols):
-        next_year = protocol.split('\\')[-2]
+        next_year = infer_metadata(protocol)['year']
         if curr_year != next_year:
             output_df = pd.DataFrame.from_dict(feature_dict)
-            save_file = curr_year + '_position_features.csv'
+            save_file = str(curr_year) + '_position_features.csv'
             output_df.to_csv(save_file, index = False)
 
             curr_year = next_year
@@ -485,7 +485,7 @@ def main(args):
         feature_dict['page_offset'].extend(protocol_feature_dict['page_offset'])
     
     # store features in dataframe and save to disk
-    save_file = curr_year + '_position_features.csv'
+    save_file = str(curr_year) + '_position_features.csv'
     output_df = pd.DataFrame.from_dict(feature_dict)
     output_df.to_csv(save_file, index = False)
 

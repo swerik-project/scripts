@@ -1,6 +1,6 @@
 from lxml import etree
 import argparse
-from pyriksdagen.utils import elem_iter, protocol_iterators
+from pyriksdagen.utils import elem_iter, protocol_iterators, infer_metadata
 import re
 import progressbar
 import pandas as pd
@@ -177,16 +177,18 @@ def main(args):
         context_seq_func = get_context_sequence_full
     
     protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
-    curr_year = protocols[0].split('\\')[-2]
+    
+    curr_year = infer_metadata(protocols[0])['year']
     
     context_sequence_dict = {'id' : [],
                              'context_sequence' : []}
     
     for protocol in progressbar.progressbar(protocols):
-        next_year = protocol.split('\\')[-2]
+        next_year = infer_metadata(protocol)['year']
+        
         if curr_year != next_year:
             output_df = pd.DataFrame.from_dict(context_sequence_dict)
-            save_file = curr_year + '_' + args.context_type + '.csv'
+            save_file = str(curr_year) + '_' + args.context_type + '.csv'
             output_df.to_csv(save_file, index = False)
             
             # reset pooling dict
@@ -200,7 +202,7 @@ def main(args):
         context_sequence_dict['context_sequence'].extend(protocol_context_sequence_dict['context_sequence'])
     
     output_df = pd.DataFrame.from_dict(context_sequence_dict)
-    save_file = curr_year + '_' + args.context_type + '.csv'
+    save_file = str(curr_year) + '_' + args.context_type + '.csv'
     output_df.to_csv(save_file, index = False)
     
 if __name__ == "__main__":
