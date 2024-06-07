@@ -119,57 +119,20 @@ def get_positional_features(protocol):
 
 ####   functions to get coords from alto files ####
 
-def get_pkg_name(file):
+def get_pkg_name(protocol):
     # function to get package name from a xml file name
     # packages used to connect to kb-lab
-    file_list = file.split('\\')
-    file_name = file_list[-1].rstrip('.xml')
-    year = int(file_name[5:9])
-    if (year > 1874) & (file_name[-1] != '-'):
-        if (len(file_name) == 22) & (file_name.split('-')[2] == 'a'):
-            f_number = str(int(file_name[-6:-3]))
-            pkg_name = file_name[:-6] + f_number + file_name[-3:]
-        elif file_name[-3:] in ['-01', '-02']:
-            f_number = str(int(file_name.split('-')[5]))
-            if file_name[-3:] == '-01':
-                pkg_name = file_name[:15] + f_number
-            else:
-                pkg_name = file_name[:15] + f_number + 'a'
-        else:
-            f_number = str(int(file_name[-3:]))
-            pkg_name = file_name[:-3] + f_number
-    
-    else:
-        pkg_name = file_name
+    parser = etree.XMLParser(remove_blank_text=True)
+    root = etree.parse(protocol, parser).getroot()
+    for elem in root.iter():
+        if elem.tag == root.tag[:-3] + 'head':
+            pkg_name = elem.text
+            break
     return pkg_name
-
-def get_pkg(pkg_id, archive):
-    # connect to a package in kblab
-    pkg = archive.get(pkg_id)
-    # handle special case where protocol_id does not match id in kb-lab
-    add_to_string = ['höst', 'extrahöst']
-    if pkg == None:
-        for s in add_to_string:
-            p_list = pkg_id.split('-')
-            p_list[2] = s
-            new_id = ''
-            for p in p_list:
-                new_id += p
-                new_id += '-'
-            pkg = archive.get(new_id[:-1])
-            pkg_id = new_id[:-1]
-            if pkg != None:
-                break
-    return pkg, pkg_id
 
 def page_as_string(page_number):
     # changes page number to string format used in kblab database
-    s = str(page_number)
-    if len(s) == 1:
-        s = '00' + s
-    elif len(s) == 2:
-        s = '0' + s
-    return s
+    return f"{page_number:0>3}"
 
 def update_block_position(prev_pos, curr_pos):
     output_0 = min(prev_pos[0], curr_pos[0])
@@ -338,7 +301,7 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
 
 def add_coord_to_dict(protocol, pos_dict, archive):
     pkg_name = get_pkg_name(protocol)
-    pkg, pkg_name = get_pkg(pkg_name, archive)
+    pkg = archive.get(pkg_name)
     
     pos_lefts = []
     pos_uppers = []
