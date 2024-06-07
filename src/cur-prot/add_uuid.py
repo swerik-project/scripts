@@ -29,9 +29,13 @@ def add_protocol_id(protocol):
         print(protocol)
     else:
         divs = body.findall(f"{ns['tei_ns']}div")
+        protocol_id = Path(protocol).stem
+        seed_str = f"{protocol_id}\ndiv\n"
         for div in divs:
-            protocol_id = Path(protocol).stem
-            seed_str = f"{protocol_id}\n{' '.join(div.itertext())}"
+
+
+            seed_str += "\n{' '.join(div.itertext())}"
+            #seed_str = f"{protocol_id}\n{' '.join(div.itertext())}"
             x = div.attrib.get(f"{ns['xml_ns']}id", get_formatted_uuid(seed_str))
             div.attrib[f"{ns['xml_ns']}id"] = x
             num_ids += 1

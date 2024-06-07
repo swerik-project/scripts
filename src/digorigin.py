@@ -31,7 +31,7 @@ def main(args):
         year = int(date.split("-")[0])
         if year >= args.start and year <= args.end:
             data = oppna_data_to_dict(data)
-            data["edition"] = args.edition
+            #data["edition"] = args.edition
             metadata = infer_metadata(data["protocol_id"])
             for field in ["number", "sitting"]:
                 data[field] = metadata[field]
@@ -42,10 +42,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--start", type=int, default=1990)
-    parser.add_argument("--end", type=int, default=2022)
-    parser.add_argument("--corpus_location", type=str, default="corpus/protocols")
-    parser.add_argument("--edition", type=str, required=True)
+    parser.add_argument("-s", "--start", type=int, default=1990)
+    parser.add_argument("-e", "--end", type=int, default=2022)
+    parser.add_argument("--corpus_location", type=str, default="riksdagen-records/data")
+    #parser.add_argument("--edition", type=str, required=True)
     parser.add_argument("--infolder", nargs='+', type=str, required=True,
         help="Path to the prot-*.json folder downloaded from Riksdagens Öppna Data")
     args = parser.parse_args()
