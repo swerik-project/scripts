@@ -32,8 +32,9 @@ def get_positional_features(protocol):
     # function to get positional features which can be parsed from xml-files
     
     id_key = f"{XML_NS}id"
-    year = infer_metadata(protocol)['year']
-    chamber = infer_metadata(protocol)['chamber']
+    meta_data = infer_metadata(protocol)
+    year = meta_data['year']
+    chamber = meta_data['chamber']
 
     id_list = []
     page_number_list = []
