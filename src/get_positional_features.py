@@ -7,26 +7,6 @@ import pandas as pd
 import progressbar
 
 #### functions to get position features from xml files ####
-def get_chamber(protocol):
-    protocol_dir_list = protocol.split('-')
-    
-    if 'ak' in protocol_dir_list:
-        return 'ak'
-    elif 'fk' in protocol_dir_list:
-        return 'fk'
-    else:
-        return 'unicameral'
-    
-def second_chamber_bin(chamber):
-    if chamber == 'ak':
-        return 1
-    else:
-        return 0
-def unicameral_bin(chamber):
-    if chamber == 'unicameral':
-        return 1
-    else:
-        return 0
     
 def even_or_odd(x):
         if x % 2 == 0:
@@ -53,7 +33,7 @@ def get_positional_features(protocol):
     
     id_key = f"{XML_NS}id"
     year = infer_metadata(protocol)['year']
-    chamber = get_chamber(protocol)
+    chamber = infer_metadata(protocol)['chamber']
 
     id_list = []
     page_number_list = []
@@ -101,8 +81,8 @@ def get_positional_features(protocol):
                 intro_speech_list.append(0)
                 
                 
-    second_chamber_list = [second_chamber_bin(x) for x in chamber_list]
-    unicameral_list = [unicameral_bin(x) for x in chamber_list]
+    second_chamber_list = [1 if chamber == 'Andra kammaren' else 0 for chamber in chamber_list]
+    unicameral_list = [1 if chamber == 'Enkammarriksdagen' else 0 for chamber in chamber_list]
     relative_page_number_list = [relative_page_number(x, page_number) for x in page_number_list]
     
     output_dict = {'id' : id_list,
@@ -298,6 +278,7 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
 
     # return sequences from alto files and positions to verify match
     return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
+
 
 def add_coord_to_dict(protocol, pos_dict, archive):
     pkg_name = get_pkg_name(protocol)
