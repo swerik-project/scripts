@@ -5,6 +5,7 @@ import pyriksdagen.download as pydl
 from difflib import SequenceMatcher
 import pandas as pd
 import progressbar
+from alto import parse_file
 
 #### functions to get position features from xml files ####
     
@@ -156,7 +157,9 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
     
     while page_found == False:
         try:
-            xml_tree = get_page_xml(pkg, pkg_name, page_number + page_number_offset)
+            pkg_name = pkg_name.replace('-', '_')
+            xml_id = pkg_name + '-' + page_as_string(page_number) + '.xml'
+            alto = parse_file(pkg.get_raw(xml_id))
             page_found = True
         except:
             page_number_offset += 1
@@ -173,113 +176,122 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
     matched_positions = []
     matched_similarities = []
     
+    # add width and height
+    page_info = alto.layout.pages[0]
+    page_width, page_height = page_info.height, page_info.width
+    matched_page_size = [(page_width, page_height) for x in range(len(target_sequences))]
+
     # vars needed for loop
-    block_sequences = []
     curr_sequence_list = []
     curr_pos = (float('inf'), float('inf'), 0.0, 0.0)
     block_pos = [9999.0, 9999.0, 0.0, 0.0]
-    prev_block = 0
-    split_word_count = 0
+    n_split_words = 0
     n_colons_in_curr_sequence = 0
     
-    # loop through elements on page
-    for elem in xml_tree.iter():
-        attrib = elem.attrib
-        if elem.tag[-4:] == 'Page':
-            page_width, page_height = int(elem.attrib['WIDTH']), int(elem.attrib['HEIGHT'])
-        if 'ID' in attrib.keys():
-            if attrib['ID'][:5] == 'block':
-                curr_block = int(attrib['ID'].split('_')[1])
-                if curr_block != prev_block:
-                    curr_sequence = ' '.join(curr_sequence_list).strip()
-                    if curr_sequence.rstrip(' ') == '':
-                        prev_block = curr_block
-                        curr_sequence_list = []
-                    else:
-                        block_sequences.append(curr_sequence)
-                        curr_pos = update_block_position(curr_pos, get_img_box(block_pos))
-                        curr_sequence_list = []
-                        prev_block = curr_block
-                        # match sequence to block if it is same number of characters or similar
-                        block_similarity = string_similarity(target_sequences[0], ' '.join(block_sequences))
-                        
-                        if (len(' '.join(block_sequences).split(' '))-split_word_count) != 0:
-                            diff_ratio = abs(1-len(target_sequences[0].split(' '))/(len(' '.join(block_sequences).split(' '))-split_word_count))
-                        else:
-                            diff_ratio = abs(1-len(target_sequences[0].split(' '))/(len(' '.join(block_sequences).split(' '))-(split_word_count-1)))
 
-                        if (block_similarity > 0.7) | (0.25 >= diff_ratio):
-                            matched_sequences.append(' '.join(block_sequences))
-                            matched_positions.append(curr_pos)
-                            matched_similarities.append(block_similarity)
-                            curr_pos = (float('inf'), float('inf'), 0.0, 0.0)
-                            target_sequences.pop(0)
-                            target_is_intro_speech.pop(0)
-                            block_sequences = []
-                            split_word_count = 0
-                        
-                            if len(target_sequences) == 0:
-                                break
-                        
-                block_pos = [attrib['HPOS'], attrib['VPOS'], attrib['WIDTH'], attrib['HEIGHT']]
-            elif attrib['ID'][:6] == 'string':
-                
-                curr_word = attrib['CONTENT'] 
-                
-                try:
-                    attrib['SUBS_CONTENT']
-                    if attrib['SUBS_TYPE'] == 'HypPart1':
-                        split_word_count += 1
-                except:
-                    if curr_word[-1] == '-':
-                        split_word_count += 1
-                
-                if curr_word.rstrip(' ') == '':
-                    pass
-                else:
-                    curr_sequence_list.append(curr_word)
-                
-                if target_is_intro_speech[0] == 1:
-                    n_colons_in_target_sequence = target_sequences[0].count(':')
-                    word_pos = [attrib['HPOS'], attrib['VPOS'], attrib['WIDTH'], attrib['HEIGHT']]
-                    curr_pos = update_block_position(curr_pos, get_img_box(word_pos))
-                    if ':' in curr_word:
-                        n_colons_in_curr_sequence += 1
-                        if n_colons_in_target_sequence == n_colons_in_curr_sequence:
+    for block in alto.extract_text_blocks():
+        # we need to treat intro speeches differently since they do not match text blocks
+        if target_is_intro_speech[0] == 1:
+            n_target_colons = target_sequences[0].count(':')
+            n_colons_in_curr_sequence = 0
+            for text_line in block.text_lines:
+                for string in text_line.strings:
+                    if str(type(string)) == "<class 'alto.String'>":
+                        curr_word = string.content
+                        word_pos = get_img_box([string.hpos, string.vpos, string.width, string.height])
+                        curr_pos = update_block_position(curr_pos, word_pos)
+                        # add to list
+                        curr_sequence_list.append(curr_word)
+                        if ':' in curr_word:
+                            n_colons_in_curr_sequence += 1
+                        elif curr_word[-1] == '-':
+                            n_split_words += 1
+                        if (n_target_colons == n_colons_in_curr_sequence) & (target_is_intro_speech[0] == 1):
                             curr_sequence = ' '.join(curr_sequence_list)
-                            curr_colon_split = curr_sequence.split(':')
-                            curr_seq_0 = ':'.join(curr_colon_split[:n_colons_in_target_sequence])
-                            curr_seq_1 = ':'.join(curr_colon_split[n_colons_in_target_sequence:])
-                            
-                            matched_sequences.append(curr_seq_0)
+                            curr_similarity = string_similarity(curr_sequence, target_sequences[0])
+                            matched_sequences.append(curr_sequence)
                             matched_positions.append(curr_pos)
-                            matched_similarities.append(string_similarity(target_sequences[0], curr_seq_0))
-                            curr_pos = get_img_box(word_pos)
+                            matched_similarities.append(curr_similarity)
+                            # reset vars for next match
+                            curr_pos = (float('inf'), float('inf'), 0.0, 0.0)
+                            curr_sequence_list = []
+                            n_split_words = 0
+                            n_colons_in_curr_sequence = 0
                             target_sequences.pop(0)
                             target_is_intro_speech.pop(0)
-                            
-                            curr_sequence_list = curr_seq_1.split(' ')
-                            n_colons_in_curr_sequence = 0
-        
-        if len(target_sequences) == 0:
-            break
-    
-    # add match for last sequence
+                            if len(target_sequences) == 0:
+                                return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
+      
+            # check if remaining words in block are a sequence or not
+            curr_sequence = ' '.join(curr_sequence_list)
+            curr_similarity = string_similarity(curr_sequence, target_sequences[0])
+            
+            target_sequence_length = len(target_sequences[0].split())
+            curr_sequence_length = len(curr_sequence_list)    
+            if (curr_sequence_length - n_split_words) != 0:
+                diff_ratio = abs(1 - target_sequence_length/(curr_sequence_length-n_split_words))
+            else:
+                diff_ratio = abs(1 - target_sequence_length/(curr_sequence_length - n_split_words + 1))
+                
+            if (curr_similarity > 0.7) | (0.25 >= diff_ratio):
+                matched_sequences.append(curr_sequence)
+                matched_positions.append(curr_pos)
+                matched_similarities.append(curr_similarity)
+                # reset vars for next match
+                curr_pos = (float('inf'), float('inf'), 0.0, 0.0)
+                curr_sequence_list = []
+                n_split_words = 0
+                target_sequences.pop(0)
+                target_is_intro_speech.pop(0)
+            # exit code if all sequences found
+            if len(target_sequences) == 0:
+                return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
+                
+        else:
+            block_sequence_list = block.extract_words()
+            block_pos = get_img_box([block.hpos, block.vpos, block.width, block.height])
+            # count number of split words in block and add to total
+            n_split_words += sum([1 if word[-1] == '-' else 0 for word in block_sequence_list])
+            
+            curr_sequence_list.extend(block_sequence_list)
+            curr_pos = update_block_position(curr_pos, block_pos)
+            
+            curr_sequence = ' '.join(curr_sequence_list)
+            
+            # compute string similarity and difference in length to check for match
+            curr_similarity = string_similarity(curr_sequence, target_sequences[0])
+            target_sequence_length = len(target_sequences[0].split())
+            curr_sequence_length = len(curr_sequence_list)    
+            if (curr_sequence_length - n_split_words) != 0:
+                diff_ratio = abs(1 - target_sequence_length/(curr_sequence_length-n_split_words))
+            else:
+                diff_ratio = abs(1 - target_sequence_length/(curr_sequence_length - n_split_words + 1))
+            
+            # if close enough match, add to output
+            if (curr_similarity > 0.7) | (0.25 >= diff_ratio):
+                matched_sequences.append(curr_sequence)
+                matched_positions.append(curr_pos)
+                matched_similarities.append(curr_similarity)
+                # reset vars for next match
+                curr_pos = (float('inf'), float('inf'), 0.0, 0.0)
+                curr_sequence_list = []
+                n_split_words = 0
+                target_sequences.pop(0)
+                target_is_intro_speech.pop(0)
+                
+                # exit code if all sequences found
+                if len(target_sequences) == 0:
+                    return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
+            
+    # add last sequence
     if len(target_sequences) != 0:
         curr_sequence = ' '.join(curr_sequence_list)
-        block_sequences.append(curr_sequence)   
-        block_sequence = ' '.join(block_sequences)
-        matched_sequences.append(block_sequence)
-        matched_positions.append(update_block_position(curr_pos, get_img_box(block_pos)))
-        block_similarity = string_similarity(target_sequences[0], block_sequence)
-        matched_similarities.append(block_similarity)
-        target_sequences.pop(0)
-    # add width and height
-    matched_page_size = [(page_width, page_height) for x in range(len(matched_sequences))]
+        matched_sequences.append(curr_sequence)
+        matched_positions.append(curr_pos)
+        matched_similarities.append(string_similarity(target_sequences[0], curr_sequence))
 
     # return sequences from alto files and positions to verify match
     return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
-
 
 def add_coord_to_dict(protocol, pos_dict, archive):
     pkg_name = get_pkg_name(protocol)
