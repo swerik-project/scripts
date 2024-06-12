@@ -33,7 +33,7 @@ def main(args):
         next_year = infer_metadata(protocol)['year']
         if curr_year != next_year:
             # switch current folder
-            year_dir = f'{args.save_folder}/{curr_year}/'
+            year_dir = f'{args.save_folder}/{next_year}/'
             mkdir(year_dir)
             curr_year = next_year
         # for each protocol make a new folder
