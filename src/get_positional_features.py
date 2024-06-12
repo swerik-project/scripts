@@ -135,35 +135,22 @@ def string_similarity(a, b):
     # used for QC, low similarity requires manual review of 2d position
     return SequenceMatcher(None, a, b).ratio()
 
-def get_page_xml(pkg, pkg_name, page_number):
-    parser = etree.XMLParser(remove_blank_text=True)
-    
-    # Function searches alto files for width and height of a page in a protocol
-    pkg_name = pkg_name.replace('-', '_')
-    
-    xml_id = pkg_name + '-' + page_as_string(page_number) + '.xml'
-    pkg_xml = pkg.get_raw(xml_id)
-    tree = etree.parse(pkg_xml, parser).getroot()
-    
-    return tree
-
 def matching_index(l, x):
     return [i for i, n in enumerate(l) if n == x]
 
-def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_speech, page_number_offset = 0):
+def get_page_pos(alto_folder, page_number, target_sequences, target_is_intro_speech, page_number_offset = 0):
     # all sequences on page need to be supplied to function
     # sequences need to be supplied in order
     page_found = False
     
     while page_found == False:
         try:
-            pkg_name = pkg_name.replace('-', '_')
-            xml_id = pkg_name + '-' + page_as_string(page_number) + '.xml'
-            alto = parse_file(pkg.get_raw(xml_id))
+            alto_file = f'{alto_folder}-{page_as_string(page_number+page_number_offset)}.xml'
+            alto = parse_file(alto_file)
             page_found = True
         except:
             page_number_offset += 1
-            if page_number_offset == 100:
+            if page_number_offset == 20:
                 # treat as null data
                 matched_sequences = [None for x in target_sequences]
                 matched_positions = [(None, None, None, None) for x in target_sequences]
@@ -178,7 +165,7 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
     
     # add width and height
     page_info = alto.layout.pages[0]
-    page_width, page_height = page_info.height, page_info.width
+    page_width, page_height = page_info.width, page_info.height
     matched_page_size = [(page_width, page_height) for x in range(len(target_sequences))]
 
     # vars needed for loop
@@ -198,6 +185,9 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
                 for string in text_line.strings:
                     if str(type(string)) == "<class 'alto.String'>":
                         curr_word = string.content
+                        if curr_word.strip() == '':
+                            # ignore blank spaces
+                            continue
                         word_pos = get_img_box([string.hpos, string.vpos, string.width, string.height])
                         curr_pos = update_block_position(curr_pos, word_pos)
                         # add to list
@@ -206,7 +196,7 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
                             n_colons_in_curr_sequence += 1
                         elif curr_word[-1] == '-':
                             n_split_words += 1
-                        if (n_target_colons == n_colons_in_curr_sequence) & (target_is_intro_speech[0] == 1):
+                        if (n_target_colons == n_colons_in_curr_sequence) & (target_is_intro_speech[0] == 1) & (n_target_colons != 0):
                             curr_sequence = ' '.join(curr_sequence_list)
                             curr_similarity = string_similarity(curr_sequence, target_sequences[0])
                             matched_sequences.append(curr_sequence)
@@ -219,8 +209,21 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
                             n_colons_in_curr_sequence = 0
                             target_sequences.pop(0)
                             target_is_intro_speech.pop(0)
-                            if len(target_sequences) == 0:
-                                return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
+                        elif (n_target_colons == 0) & (len(curr_sequence_list) == (len(target_sequences[0].split())-n_split_words)):
+                            curr_sequence = ' '.join(curr_sequence_list)
+                            curr_similarity = string_similarity(curr_sequence, target_sequences[0])
+                            matched_sequences.append(curr_sequence)
+                            matched_positions.append(curr_pos)
+                            matched_similarities.append(curr_similarity)
+                            # reset vars for next match
+                            curr_pos = (float('inf'), float('inf'), 0.0, 0.0)
+                            curr_sequence_list = []
+                            n_split_words = 0
+                            n_colons_in_curr_sequence = 0
+                            target_sequences.pop(0)
+                            target_is_intro_speech.pop(0)
+                        if len(target_sequences) == 0:
+                            return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
       
             # check if remaining words in block are a sequence or not
             curr_sequence = ' '.join(curr_sequence_list)
@@ -249,6 +252,9 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
                 
         else:
             block_sequence_list = block.extract_words()
+            if ' '.join(block_sequence_list).strip() == '': 
+                # ignore empty blocks
+                continue
             block_pos = get_img_box([block.hpos, block.vpos, block.width, block.height])
             # count number of split words in block and add to total
             n_split_words += sum([1 if word[-1] == '-' else 0 for word in block_sequence_list])
@@ -293,10 +299,10 @@ def get_page_pos(pkg, pkg_name, page_number, target_sequences, target_is_intro_s
     # return sequences from alto files and positions to verify match
     return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
 
-def add_coord_to_dict(protocol, pos_dict, archive):
-    pkg_name = get_pkg_name(protocol)
-    pkg = archive.get(pkg_name)
-    
+def add_coord_to_dict(protocol, pos_dict, archive):   
+    protocol_year = infer_metadata(protocol)['year']
+    protocol_name = get_pkg_name(protocol)
+    alto_folder = f'{args.alto_folder}{protocol_year}/{protocol_name}/{protocol_name.replace('-', '_')}'
     pos_lefts = []
     pos_uppers = []
     pos_rights = []
@@ -320,7 +326,7 @@ def add_coord_to_dict(protocol, pos_dict, archive):
             # input to get_page_pos() used to get coordinates
             target_sequences = pos_dict['text'][indices[0]:(indices[-1]+1)]
             target_is_intro_speech = pos_dict['intro_speech'][indices[0]:(indices[-1]+1)]
-            page_text, page_coord, page_width_height, page_similarities, page_number_offset = get_page_pos(pkg, pkg_name, page_number, 
+            page_text, page_coord, page_width_height, page_similarities, page_number_offset = get_page_pos(alto_folder, page_number, 
                                                                                                        target_sequences, target_is_intro_speech,
                                                                                                        page_number_offset)
          
@@ -328,7 +334,7 @@ def add_coord_to_dict(protocol, pos_dict, archive):
                 correct_matched_length = True
             else:
                 page_number_offset += 1
-                if (page_number_offset > 25) | (n_failed_pages > 5):
+                if (page_number_offset > 20) | (n_failed_pages > 5):
                     # restart and treat page as null data
                     correct_matched_length = True
                     page_number_offset = 0
@@ -448,6 +454,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records_folder", type=str, default="corpus/records")
+    parser.add_argument("--alto_folder", type = str)
     parser.add_argument("--save_folder", type=str)
     parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=None, help="End year")
