@@ -1,7 +1,6 @@
 from lxml import etree
 import argparse
 from pyriksdagen.utils import elem_iter, protocol_iterators, infer_metadata, XML_NS
-import pyriksdagen.download as pydl
 from difflib import SequenceMatcher
 import pandas as pd
 import progressbar
@@ -299,10 +298,10 @@ def get_page_pos(alto_folder, page_number, target_sequences, target_is_intro_spe
     # return sequences from alto files and positions to verify match
     return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
 
-def add_coord_to_dict(protocol, pos_dict, archive):   
+def add_coord_to_dict(protocol, pos_dict, alto_folder):   
     protocol_year = infer_metadata(protocol)['year']
     protocol_name = get_pkg_name(protocol)
-    alto_folder = f'{args.alto_folder}{protocol_year}/{protocol_name}/{protocol_name.replace('-', '_')}'
+    alto_folder = f"{alto_folder}{protocol_year}/{protocol_name}/{protocol_name.replace('-', '_')}"
     pos_lefts = []
     pos_uppers = []
     pos_rights = []
@@ -392,7 +391,6 @@ def main(args):
                 'width' : [],
                 'height' : []}
     
-    archive = pydl.LazyArchive()
     protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
     
     curr_year = infer_metadata(protocols[0])['year']
@@ -425,7 +423,7 @@ def main(args):
         protocol_feature_dict = get_positional_features(protocol)
         
         # add coordinate data
-        protocol_feature_dict = add_coord_to_dict(protocol, protocol_feature_dict, archive)
+        protocol_feature_dict = add_coord_to_dict(protocol, protocol_feature_dict, args.alto_folder)
 
         # add to feature dict
         record_file = protocol.split('\\')[-1]
