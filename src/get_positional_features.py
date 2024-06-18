@@ -1,6 +1,7 @@
 from lxml import etree
 import argparse
 from pyriksdagen.utils import elem_iter, protocol_iterators, infer_metadata, XML_NS
+import pyriksdagen.download as pydl
 from difflib import SequenceMatcher
 import pandas as pd
 import progressbar
@@ -137,25 +138,41 @@ def string_similarity(a, b):
 def matching_index(l, x):
     return [i for i, n in enumerate(l) if n == x]
 
-def get_page_pos(alto_folder, page_number, target_sequences, target_is_intro_speech, page_number_offset = 0):
+def get_page_pos(pkg, pkg_name, alto_folder, page_number, target_sequences, target_is_intro_speech, page_number_offset = 0):
     # all sequences on page need to be supplied to function
     # sequences need to be supplied in order
     page_found = False
     
     while page_found == False:
-        try:
-            alto_file = f'{alto_folder}-{page_as_string(page_number+page_number_offset)}.xml'
-            alto = parse_file(alto_file)
-            page_found = True
-        except:
-            page_number_offset += 1
-            if page_number_offset == 20:
-                # treat as null data
-                matched_sequences = [None for x in target_sequences]
-                matched_positions = [(None, None, None, None) for x in target_sequences]
-                matched_similarities = [None for x in target_sequences]
-                matched_page_size = [(None, None) for x in target_sequences]
-                return matched_sequences, matched_positions, matched_page_size, matched_similarities, 0
+        if alto_folder != None:
+            try:
+                alto_file = f'{alto_folder}-{page_as_string(page_number+page_number_offset)}.xml'
+                alto = parse_file(alto_file)
+                page_found = True
+            except:
+                page_number_offset += 1
+                if page_number_offset == 20:
+                    # treat as null data
+                    matched_sequences = [None for x in target_sequences]
+                    matched_positions = [(None, None, None, None) for x in target_sequences]
+                    matched_similarities = [None for x in target_sequences]
+                    matched_page_size = [(None, None) for x in target_sequences]
+                    return matched_sequences, matched_positions, matched_page_size, matched_similarities, 0
+        else:
+            try:
+                pkg_name = pkg_name.replace('-', '_')
+                xml_id = pkg_name + '-' + page_as_string(page_number) + '.xml'
+                alto = parse_file(pkg.get_raw(xml_id))
+                page_found = True
+            except:
+                page_number_offset += 1
+                if page_number_offset == 20:
+                    # treat as null data
+                    matched_sequences = [None for x in target_sequences]
+                    matched_positions = [(None, None, None, None) for x in target_sequences]
+                    matched_similarities = [None for x in target_sequences]
+                    matched_page_size = [(None, None) for x in target_sequences]
+                    return matched_sequences, matched_positions, matched_page_size, matched_similarities, 0
                 
     #output
     matched_sequences = []
@@ -298,10 +315,17 @@ def get_page_pos(alto_folder, page_number, target_sequences, target_is_intro_spe
     # return sequences from alto files and positions to verify match
     return matched_sequences, matched_positions, matched_page_size, matched_similarities, page_number_offset
 
-def add_coord_to_dict(protocol, pos_dict, alto_folder):   
+def add_coord_to_dict(protocol, pos_dict, alto_folder = None, archive = None):   
     protocol_year = infer_metadata(protocol)['year']
     protocol_name = get_pkg_name(protocol)
-    alto_folder = f"{alto_folder}{protocol_year}/{protocol_name}/{protocol_name.replace('-', '_')}"
+    # if alto_folder is not provided, get data from kblab
+    if alto_folder == None:
+        pkg_name = get_pkg_name(protocol)
+        pkg = archive.get(pkg_name)
+    else:
+        alto_folder = f"{alto_folder}{protocol_year}/{protocol_name}/{protocol_name.replace('-', '_')}"
+        pkg = None
+        pkg_name = None
     pos_lefts = []
     pos_uppers = []
     pos_rights = []
@@ -325,7 +349,7 @@ def add_coord_to_dict(protocol, pos_dict, alto_folder):
             # input to get_page_pos() used to get coordinates
             target_sequences = pos_dict['text'][indices[0]:(indices[-1]+1)]
             target_is_intro_speech = pos_dict['intro_speech'][indices[0]:(indices[-1]+1)]
-            page_text, page_coord, page_width_height, page_similarities, page_number_offset = get_page_pos(alto_folder, page_number, 
+            page_text, page_coord, page_width_height, page_similarities, page_number_offset = get_page_pos(pkg, pkg_name, alto_folder, page_number, 
                                                                                                        target_sequences, target_is_intro_speech,
                                                                                                        page_number_offset)
          
@@ -375,6 +399,11 @@ def add_coord_to_dict(protocol, pos_dict, alto_folder):
 
 def main(args):
     
+    if args.alto_folder == None:
+        archive = pydl.LazyArchive()
+    else:
+        archive = None
+    
     feature_dict = {'id': [],
                 'record': [],
                 'page_number': [],
@@ -423,7 +452,7 @@ def main(args):
         protocol_feature_dict = get_positional_features(protocol)
         
         # add coordinate data
-        protocol_feature_dict = add_coord_to_dict(protocol, protocol_feature_dict, args.alto_folder)
+        protocol_feature_dict = add_coord_to_dict(protocol, protocol_feature_dict, alto_folder = args.alto_folder, archive = archive)
 
         # add to feature dict
         record_file = protocol.split('\\')[-1]
@@ -452,7 +481,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records_folder", type=str, default="corpus/records")
-    parser.add_argument("--alto_folder", type = str)
+    parser.add_argument("--alto_folder", type = str, default = None)
     parser.add_argument("--save_folder", type=str)
     parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=None, help="End year")
