@@ -2,7 +2,10 @@
 """
 GENERATE SWERIK IDS FOR WIKIDATA
 """
-from pyriksdagen.utils import get_formatted_uuid
+from pyriksdagen.utils import (
+    get_data_location,
+    get_formatted_uuid,
+)
 from tqdm import tqdm
 import argparse, glob, json, sys
 import pandas as pd
@@ -24,7 +27,9 @@ unittest_files = [
 
 def generate_swerik_id(wiki_id):
     seed = wiki_id + str(int(wiki_id[1:]) * 7)
-    return get_formatted_uuid(seed=seed)
+    swerik = get_formatted_uuid(seed=seed)
+    print(wiki_id, swerik)
+    return swerik
 
 
 
@@ -45,23 +50,27 @@ def update_unittest_files():
 
 
 
-def generate_from_wiki_id(ids_to_add):
-    df = pd.read_csv("corpus/metadata/swerik-to-wikidata-id-map.csv")
+def generate_from_wiki_id(ids_to_add, metadata_path):
+    df = pd.read_csv(f"{metadata_path}/wiki_id.csv")
 
     for wiki_id in ids_to_add:
-        df.loc[len(df)] = [generate_serik_id(wiki_id), wiki_id]
+        df.loc[len(df)] = [generate_swerik_id(wiki_id), wiki_id]
 
-    assert(len(df) == len(df.SWERIK_ID.unique()))
-    df.to_csv("corpus/metadata/swerik-to-wikidata-id-map.csv", index=False)
+    assert(len(df) == len(df.person_id.unique()))
+    df.to_csv(f"{metadata_path}/wiki_id.csv", index=False)
     print("done")
 
 
 
 
 def main(args):
+    if args.metadata_path is None:
+        metadata_path = get_data_location("metadata")
+    else:
+        metadata_path = args.metadata_path
     if args.add_singleton:
         print("adding one new SWERIK ID")
-        generate_from_wiki_id([args.add_singleton])
+        generate_from_wiki_id([args.add_singleton], metadata_path)
 
     elif args.add_list:
         print("adding one new SWERIK IDs from list")
@@ -72,13 +81,13 @@ def main(args):
                 j = json.load(inf)
                 lines = [k for k,v in j.items()]
 
-        generate_from_wiki_id([_.strip() for _ in lines])
+        generate_from_wiki_id([_.strip() for _ in lines], metadata_path)
     elif args.update_testfiles:
         print("DANGER ZONE: You want to update unittest files -- this should only be done once. Probably you made a mistake!")
         #update_unittest_files()
     else:
         wiki_ids = []
-        metadata = glob.glob("corpus/metadata/*.csv")
+        metadata = glob.glob(f"{metadata_path}/*.csv")
         print("fetching Wiki IDs from:")
         for csv in metadata:
             if csv in no_wiki_id:
@@ -96,7 +105,7 @@ def main(args):
         print("Testing IDs are unique")
         assert(len(df) == len(df.SWERIK_ID.unique()))
         print("  ok")
-        df.to_csv("corpus/metadata/swerik-to-wikidata-id-map.csv", index=False)
+        df.to_csv(f"{metadata_path}/wiki_id.csv", index=False)
         print("done")
 
 
@@ -106,7 +115,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(__file__)
     parser.add_argument("-u", "--update-testfiles",
                         action="store_true",
-                        help="Replace wiki_id colum in unit test files with SWERIK IDs.")
+                        help="Replace wiki_id colum in unit test files with SWERIK IDs. Probably don't use this.")
     parser.add_argument("-s", "--add-singleton",
                         type=str,
                         help="Wikidata ID of single individual for which to generate a swerik ID. \
@@ -115,6 +124,7 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--add-list",
                         type=str,
                         help="List file of individual wikidata ids that need a swerik ID")
+    parser.add_argument("--metadata-path", type=str, default=None)
     args = parser.parse_args()
     if not len(sys.argv) > 1:
         print("DANGER ZONE: You called the sctript that will regnerate all SWERIK IDs, but probably don't want to do that!")
