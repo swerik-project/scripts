@@ -20,7 +20,7 @@ jobs:
         pip install -r requirements.txt
     - name: Test scripts
       run: |
-        for filename in src/*.py; do
+        for filename in src/**.py; do
           echo "$filename"
           python "$filename" --help
         done
