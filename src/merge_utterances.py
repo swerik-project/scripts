@@ -1,5 +1,5 @@
 """
-Map introductions to the speaker in the metadata.
+Merge consecutive 'u' elements
 """
 from lxml import etree
 import argparse
