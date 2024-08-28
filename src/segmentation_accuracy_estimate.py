@@ -72,8 +72,19 @@ def estimate_accuracy(protocol, df):
     return correct, incorrect
 
 def main(args):
-    protocols = list(protocol_iterators("corpus/", start=args.start, end=args.end))
+    protocols = list(protocol_iterators(args.records_folder, start=args.start, end=args.end))
     df = pd.read_csv(args.path_goldstandard)
+    def pad_id(pid):
+        protocol_number = infer_metadata(pid)["number"]
+        protocol_id = infer_metadata(pid)["protocol"]
+        protocol_id = protocol_id.replace("_", "-")
+        protocol_number_str_old = str(protocol_number)
+        protocol_number_str = f"{protocol_number:0>3}"
+        protocol_id = protocol_id[:-len(protocol_number_str_old)] + protocol_number_str
+        print(protocol_id, protocol_number, protocol_number_str)
+        return protocol_id
+
+    df['protocol_id'] = df['protocol_id'].apply(lambda x: pad_id(x))
 
     rows = []
     correct, incorrect = 0, 0
@@ -84,6 +95,7 @@ def main(args):
         #print(p, protocol_id)
         df_p = df[df["protocol_id"] == protocol_id]
         if len(df_p) >= 1:
+            print(p)
             metadata = infer_metadata(p)
 
             acc = estimate_accuracy(path, df_p)
@@ -118,6 +130,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=int, default=1867)
     parser.add_argument("--end", type=int, default=2022)
+    parser.add_argument("--records_folder", type=str, default="corpus/records")
     parser.add_argument("--path_goldstandard", type=str, default="corpus/quality_assesment/segment_classification/prot-segment-classification.csv")
     args = parser.parse_args()
     df = main(args)
