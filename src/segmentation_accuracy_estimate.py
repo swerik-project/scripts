@@ -81,7 +81,6 @@ def main(args):
         protocol_number_str_old = str(protocol_number)
         protocol_number_str = f"{protocol_number:0>3}"
         protocol_id = protocol_id[:-len(protocol_number_str_old)] + protocol_number_str
-        print(protocol_id, protocol_number, protocol_number_str)
         return protocol_id
 
     df['protocol_id'] = df['protocol_id'].apply(lambda x: pad_id(x))
@@ -95,7 +94,6 @@ def main(args):
         #print(p, protocol_id)
         df_p = df[df["protocol_id"] == protocol_id]
         if len(df_p) >= 1:
-            print(p)
             metadata = infer_metadata(p)
 
             acc = estimate_accuracy(path, df_p)
