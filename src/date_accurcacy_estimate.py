@@ -42,12 +42,12 @@ def get_jaccard(startdate, enddate, startdate_hat, enddate_hat):
     union = min(startdate, startdate_hat), max(enddate, enddate_hat) 
     intersection = max(startdate, startdate_hat), min(enddate, enddate_hat) 
     if intersection[1] <= intersection[0]:
-        return 0.0, 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0
 
     unionlen = (union[1] - union[0]).total_seconds()
     intersectionlen = (intersection[1] - intersection[0]).total_seconds()
-
-    return intersectionlen / unionlen, int(intersectionlen == unionlen), int(intersectionlen / unionlen > 0.0)
+    contain = int(startdate >= startdate_hat and enddate <= enddate_hat)
+    return intersectionlen / unionlen, int(intersectionlen == unionlen), int(intersectionlen / unionlen > 0.0), contain
 
 def main(args):
     protocols = list(protocol_iterators(args.records_folder, start=args.start, end=args.end))
@@ -80,6 +80,7 @@ def main(args):
                 jaccs.append(jacc)
                 perfects.append(perfect)
                 overlaps.append(overlap)
+                contains.append(contain)
                 if overlap == 0:
                     print()
                     print(protocol_id)
@@ -96,6 +97,7 @@ def main(args):
     print("E[J]", np.mean(jaccs))
     print("P(J == 1)", np.mean(perfects))
     print("P(J > 0)", np.mean(overlaps))
+    print("Contains", np.mean(contains))
 
     zero_overlaps = "\n".join(zero_overlaps)
     print(f"Zero overlap in: {zero_overlaps}")
