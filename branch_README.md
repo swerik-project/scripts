@@ -7,6 +7,7 @@ Scripts added:
 4. src/train_join_model.py
 5. src/classify_joins.py
 6. src/train_split_model.py
+7. src/get_positional_features.py
 
 Data added:
 1. datasets/titles/
@@ -33,4 +34,9 @@ src/classify_joins.py uses this model to join segments in the corpus.
 
 # split prediction
 src/train_split_model.py trains a BERT model to predict which tokens to split a sequence on. This can predict multiple splits per sequence. Training, validation, and test data is stored in datasets/split_segments/. Currently the model tries to perform all types of splits (paragraphs, margins, titles, etc.) but performance is quite poor. Limiting the scope to the easier to classify splits might be a way to make the model useable. 
-Since performance is unsatisfactory, there is no script to split segments in the corpus. 
+Since performance is unsatisfactory, there is no script to split segments in the corpus.
+
+# positional_features
+src/get_positional_features.py includes functions to get positional features from kblab and the xml file. Used to get data for models with positional features. 
+
+Use get_elem_data() to return dict with both positional features that can be parsed from xml file and positional segment coordinates from kblab's alto files. 
