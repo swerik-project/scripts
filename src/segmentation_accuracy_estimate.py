@@ -2,7 +2,7 @@
 Calculate an upper bound for segment classification accuracy.
 Based on the gold standard annotations.
 """
-from pyriksdagen.utils import protocol_iterators, elem_iter, infer_metadata
+from pyriksdagen.utils import protocol_iterators, elem_iter, infer_metadata, get_data_location
 from lxml import etree
 import numpy as np
 import pandas as pd
@@ -131,6 +131,8 @@ if __name__ == '__main__':
     parser.add_argument("--records_folder", type=str, default=None)
     parser.add_argument("--path_goldstandard", type=str, default="corpus/quality_assesment/segment_classification/prot-segment-classification.csv")
     args = parser.parse_args()
+    if args.records_folder is  None:
+        args.records_folder = get_data_location("records")
     df = main(args)
 
     print(df)
