@@ -4,6 +4,7 @@ Find margin notes with a date in protocols and include them as metadata.
 from lxml import etree
 from pyriksdagen.refine import detect_date
 from pyriksdagen.utils import (
+    get_data_location,
     infer_metadata,
     parse_protocol,
     protocol_iterators,
