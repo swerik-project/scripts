@@ -8,6 +8,7 @@ from pyriksdagen.utils import (
     parse_protocol,
     protocol_iterators,
     write_protocol,
+    get_data_location,
 )
 import progressbar
 import argparse

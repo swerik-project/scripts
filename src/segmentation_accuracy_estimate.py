@@ -2,7 +2,7 @@
 Calculate an upper bound for segment classification accuracy.
 Based on the gold standard annotations.
 """
-from pyriksdagen.utils import protocol_iterators, elem_iter, infer_metadata
+from pyriksdagen.utils import protocol_iterators, elem_iter, infer_metadata, get_data_location
 from lxml import etree
 import numpy as np
 import pandas as pd
@@ -72,8 +72,18 @@ def estimate_accuracy(protocol, df):
     return correct, incorrect
 
 def main(args):
-    protocols = list(protocol_iterators("corpus/", start=args.start, end=args.end))
+    protocols = list(protocol_iterators(args.records_folder, start=args.start, end=args.end))
     df = pd.read_csv(args.path_goldstandard)
+    def pad_id(pid):
+        protocol_number = infer_metadata(pid)["number"]
+        protocol_id = infer_metadata(pid)["protocol"]
+        protocol_id = protocol_id.replace("_", "-")
+        protocol_number_str_old = str(protocol_number)
+        protocol_number_str = f"{protocol_number:0>3}"
+        protocol_id = protocol_id[:-len(protocol_number_str_old)] + protocol_number_str
+        return protocol_id
+
+    df['protocol_id'] = df['protocol_id'].apply(lambda x: pad_id(x))
 
     rows = []
     correct, incorrect = 0, 0
@@ -118,8 +128,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=int, default=1867)
     parser.add_argument("--end", type=int, default=2022)
+    parser.add_argument("--records_folder", type=str, default=None)
     parser.add_argument("--path_goldstandard", type=str, default="corpus/quality_assesment/segment_classification/prot-segment-classification.csv")
     args = parser.parse_args()
+    if args.records_folder is  None:
+        args.records_folder = get_data_location("records")
     df = main(args)
 
     print(df)
