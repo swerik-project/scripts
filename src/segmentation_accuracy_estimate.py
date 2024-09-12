@@ -128,7 +128,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=int, default=1867)
     parser.add_argument("--end", type=int, default=2022)
-    parser.add_argument("--records_folder", type=str, default="corpus/records")
+    parser.add_argument("--records_folder", type=str, default=None)
     parser.add_argument("--path_goldstandard", type=str, default="corpus/quality_assesment/segment_classification/prot-segment-classification.csv")
     args = parser.parse_args()
     df = main(args)
