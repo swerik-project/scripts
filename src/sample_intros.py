@@ -57,7 +57,6 @@ def main(args):
 		for intros in tqdm(pool.imap(extract_intros, protocols), total=len(protocols)):
 			data.append(intros)
 	df = pd.concat(data).reset_index(drop=True)
-	print("Len df", len(df))
 	# Stratified sampling by year
 	df['year'] = df['github'].str.extract(r'(?:\/)(\d{4,8})(?:\/)')
 	df['year'] = df['year'].str[:4].astype(int)
@@ -65,7 +64,6 @@ def main(args):
 		df["indicator"] = 1
 		df = df[df["who"] == "unknown"]
 	df = sample(df, n=args.n, random_state=args.seed)
-	print("Len", len(df))
 	metadata = [intro_to_dict(intro_text) for intro_text in df["intro"]]
 	df["name"] = [d.get("name", "unknown") for d in metadata]
 	df["party"] = [d.get("party", "unknown") for d in metadata]
@@ -75,7 +73,7 @@ def main(args):
 		df = df.groupby(["name", "specifier", "other"]).sum()
 		df = df.sort_values("indicator")
 		df = df[df["indicator"] > 1].reset_index()
-	print(df[["intro", "name", "specifier", "indicator", "other"]])
+		print(df[["intro", "name", "specifier", "indicator", "other"]])
 	df.to_csv(f"{args.outfolder}/intro_sample_{str(datetime.date.today())}.csv", index=False)
 
 
