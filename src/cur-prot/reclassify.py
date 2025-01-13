@@ -1,17 +1,24 @@
 """
 Run the classification into utterances and notes.
 """
-from pyparlaclarin.refine import reclassify, format_texts, random_classifier
-
-from pyriksdagen.db import filter_db, load_patterns
-from pyriksdagen.utils import infer_metadata, protocol_iterators
 from lxml import etree
-import pandas as pd
-import os, progressbar, sys
+from pyparlaclarin.refine import reclassify, random_classifier
+from pyriksdagen.utils import (
+    get_data_location,
+    parse_protocol,
+    protocol_iterators,
+    write_protocol,
+)
 import argparse
 import numpy as np
+import pandas as pd
+import progressbar
+
 
 TEI_NS = "{http://www.tei-c.org/ns/1.0}"
+
+
+
 
 def classify_paragraph(s, model, ft, dim, prior=np.log([0.8, 0.2]), prob_dict={}, cache_preds=True):
     if s is None:
@@ -44,6 +51,7 @@ def classify_paragraph(s, model, ft, dim, prior=np.log([0.8, 0.2]), prob_dict={}
     else:
         return "u"
 
+
 def get_neural_classifier(model, ft, dim):
     prob_dict = {}
     return (lambda paragraph: classify_paragraph(paragraph.text, model, ft, dim, prob_dict=prob_dict))
@@ -62,6 +70,7 @@ def preclassified(d, elem):
     xml_id = elem.attrib[xml_id]
     return d.get(xml_id, default)
 
+
 def get_filename_classifier(filename):
     df = pd.read_csv(filename)
     print("Generate dict...")
@@ -69,8 +78,10 @@ def get_filename_classifier(filename):
     print("done")
     return (lambda paragraph: preclassified(d, paragraph))
 
+
+
+
 def main(args):
-    parser = etree.XMLParser(remove_blank_text=True)
 
     if args.classfile is not None:
         classifier = get_filename_classifier(args.classfile)
@@ -86,22 +97,40 @@ def main(args):
         model = keras.models.load_model('input/segment-classifier/')
         classifier = get_neural_classifier(model, ft, dim)
 
-    for protocol_path in progressbar.progressbar(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end))):
+    if args.protocol:
+        protocols = [args.protocol]
+    else:
+        if args.records_folder is not None:
+            data_location = args.records_folder
+        else:
+            data_location = get_data_location("records")
+        protocols = list(protocol_iterators(data_location,
+                                            start=args.start,
+                                            end=args.end))
+
+    for protocol_path in progressbar.progressbar(protocols):
         print(protocol_path)
-        metadata = infer_metadata(protocol_path)
-        root = etree.parse(protocol_path, parser).getroot()
-
+        root = parse_protocol(protocol_path)
         root = reclassify(root, classifier, exclude=["date", "speaker"])
-        root = format_texts(root)
-        b = etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
 
-        with open(protocol_path, "wb") as f:
-            f.write(b)
+        write_protocol(root, protocol_path)
+
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
+    parser.add_argument("-r", "--records-folder",
+                        type=str,
+                        default=None,
+                        help="(optional) Path to records folder, defaults to environment var or `data/`")
+    parser.add_argument("-p", "--protocol",
+                        type=str,
+                        default=None,
+                        help="operate on a single protocol")
     parser.add_argument("--method", type=str, default="w2v", help="default: w2w")
     parser.add_argument("--classfile", type=str, default=None, help="What's this? default=None")
     args = parser.parse_args()
