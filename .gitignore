@@ -13,4 +13,4 @@ pyriksdagen/source/
 input/KWIC/*.csv
 input/rawpdf/*
 **/_*
-
+!**/__init__.py
