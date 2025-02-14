@@ -35,6 +35,7 @@ jobs:
         pip install scikit-learn
         pip install torch
         pip install seaborn
+        pip install Wikidata
 
     - name: Get release type
       run: |
