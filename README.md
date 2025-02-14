@@ -1,6 +1,10 @@
 # Scripts – Data curation and processing logic for the Swedish Parliament Corpus 
 
+This contains various scripts for curating and working with data from Swedish Riksdag. This repo is "internal" in some sense -- we make no effort to maintain compatibility or to provide really thorough documentation, and this repo is not intended as part of the project's API. Nevertheless, we feel that users might find some utility in these example scripts.
+
 ## General setup and use
+
+The general recommendation is to set up a python virtual environment for working with this data set and these scripts. Do that how you like -- below is just one example of how it can be done. We're working with Python 3.8 due to compatibility issues with e.g. tensor flow.
 
 ### Setting up an environment
 
@@ -26,10 +30,12 @@ The `LazyArchive()` class attempts to connect to the KB labs in the lazyest way 
 	KBLUSER=
 	KBLPASS=
 
+We are phasing out reliance on kblabb servers, and this will soon be deprecated.
+
 They can be added to the environment variables, e.g. `~/miniconda3/envs/tf/etc/conda/activate.d/env_vars.sh`. If these are not present, you will be prompted for the username and password.
 
 
-## Curating data
+## Curating Records data
 
 
 Most scripts take `--start` YEAR and `--end` YEAR arguments to define a span of time to operate on. Other options are noted in with the file below.
