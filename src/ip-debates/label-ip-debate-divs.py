@@ -77,7 +77,7 @@ def label_ip_debates(protocol, counter):
 
 def main(args):
     counter = 0
-    protocols = sorted(list(protocol_iterators("corpus/protocols/", start=args.start, end=args.end)))
+    protocols = sorted(list(protocol_iterators("riksdagen-records/data", start=args.start, end=args.end)))
     for p in protocols:
         root, counter = label_ip_debates(p, counter)
         write_protocol(root, p)
