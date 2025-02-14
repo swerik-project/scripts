@@ -32,6 +32,7 @@ jobs:
         pip install selenium
         pip install fasttext
         pip install tensorflow
+        pip install scikit-learn
 
     - name: Get release type
       run: |
