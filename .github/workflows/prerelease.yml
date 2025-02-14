@@ -30,6 +30,7 @@ jobs:
         pip install pyriksdagen
         pip install pdoc
         pip install selenium
+        pip install fasttext
 
     - name: Get release type
       run: |
