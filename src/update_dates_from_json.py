@@ -17,23 +17,18 @@ from tqdm import tqdm
 import argparse
 from pathlib import Path
 import json
-#import pandas as pd
 
 def read_in_json(path):
     json_folder = Path(path)
 
     ids_to_dates = {}
     for file in tqdm(sorted(json_folder.glob("*.json"))[:10]):
-        #print(file)
         with file.open(encoding='utf-8-sig') as f:
             d = json.load(f)
         metadata = d["dokumentstatus"]["dokument"]
         date = metadata["datum"]
         meeting = metadata["rm"]
         number = int(metadata["beteckning"])
-        #print("Date", date)
-        #print("Protocol", meeting, number)
-
         # 1997-12-12
         date = date.strip().split()[0]
         meeting = meeting.replace("/", "")
@@ -67,21 +62,12 @@ def update_date(root, new_date):
 def main(args):
     ids_to_dates = read_in_json(args.json_path)
     for record in tqdm(args.records):
-        print(record)
         metadata = infer_metadata(record)
         protocol_id = metadata["protocol"].replace("_", "-")
-        #print(protocol_id)
         new_date = ids_to_dates.get(protocol_id)
         root, ns = parse_tei(record)
-        #root, dates = detect_date(root, metadata, skip_doctors_notes=args.skip_doctors_notes)
-
         root = update_date(root, new_date)
         write_tei(root, record)
-        exit()
-
-
-
-
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
