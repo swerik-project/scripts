@@ -2,7 +2,6 @@
 Replace document dates with Riksdagens Öppna data JSON metadata
 """
 from lxml import etree
-from pyriksdagen.refine import detect_date
 from pyriksdagen.args import (
     fetch_parser,
     impute_args,
