@@ -34,6 +34,7 @@ jobs:
         pip install tensorflow
         pip install scikit-learn
         pip install torch
+        pip install seaborn
 
     - name: Get release type
       run: |
