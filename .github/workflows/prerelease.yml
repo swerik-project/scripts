@@ -33,6 +33,7 @@ jobs:
         pip install fasttext
         pip install tensorflow
         pip install scikit-learn
+        pip install torch
 
     - name: Get release type
       run: |
