@@ -16,12 +16,17 @@ from tqdm import tqdm
 import argparse
 from pathlib import Path
 import json
+import warnings
 
-def read_in_json(path):
-    json_folder = Path(path)
+def read_in_json(paths):
+    json_paths = []
+    print(f"Read in {len(paths)} folders of JSON files...")
+    for path in paths:
+        json_folder = Path(path)
+        json_paths = json_paths + list(json_folder.glob("*.json"))
 
     ids_to_dates = {}
-    for file in tqdm(sorted(json_folder.glob("*.json"))):
+    for file in tqdm(sorted(json_paths)):
         with file.open(encoding='utf-8-sig') as f:
             d = json.load(f)
         metadata = d["dokumentstatus"]["dokument"]
@@ -60,7 +65,6 @@ def update_date(root, new_date):
 
 def main(args):
     ids_to_dates = read_in_json(args.json_path)
-    print(ids_to_dates)
     for record in tqdm(args.records):
         metadata = infer_metadata(record)
         protocol_id = metadata["protocol"].replace("_", "-")
@@ -69,11 +73,11 @@ def main(args):
             root, ns = parse_tei(record)
             root = update_date(root, new_date)
             write_tei(root, record)
-        #else:
-        #    print(protocol_id, new_date)
+        else:
+            warnings.warn(f"No date found for {protocol_id}")
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
-    parser.add_argument("--json_path", required=True)
+    parser.add_argument("--json_path", type=str, default=[], nargs="+")
     parser.add_argument("--skip-doctors-notes", action='store_true')
     main(impute_args(parser.parse_args()))
