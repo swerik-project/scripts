@@ -21,7 +21,7 @@ def read_in_json(path):
     json_folder = Path(path)
 
     ids_to_dates = {}
-    for file in tqdm(sorted(json_folder.glob("*.json"))[:10]):
+    for file in tqdm(sorted(json_folder.glob("*.json"))):
         with file.open(encoding='utf-8-sig') as f:
             d = json.load(f)
         metadata = d["dokumentstatus"]["dokument"]
@@ -60,13 +60,17 @@ def update_date(root, new_date):
 
 def main(args):
     ids_to_dates = read_in_json(args.json_path)
+    print(ids_to_dates)
     for record in tqdm(args.records):
         metadata = infer_metadata(record)
         protocol_id = metadata["protocol"].replace("_", "-")
         new_date = ids_to_dates.get(protocol_id)
-        root, ns = parse_tei(record)
-        root = update_date(root, new_date)
-        write_tei(root, record)
+        if new_date is not None:
+            root, ns = parse_tei(record)
+            root = update_date(root, new_date)
+            write_tei(root, record)
+        #else:
+        #    print(protocol_id, new_date)
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
