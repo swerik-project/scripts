@@ -261,7 +261,7 @@ def main(args):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data_folder", type = str, default = 'datasets/join_segments')
+    parser.add_argument("--data_folder", type = str, default = 'datasets/split_segments')
     parser.add_argument("--save_folder", type = str)
     parser.add_argument("--model_dir", type = str, default = 'exbert1.7')
     parser.add_argument("--cuda", action="store_true", help="Set this flag to run with cuda.")
