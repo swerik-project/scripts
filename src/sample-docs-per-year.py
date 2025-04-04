@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-take a sample of N documents per year.
+Take a stratified random sample of N documents per year, per chamber.
 """
 from datetime import datetime
 from glob import glob
@@ -17,13 +17,13 @@ import pandas as pd
 import random
 
 
-def get_random_state(args, data_path):
+def get_random_state(args, data_path, year):
     if args.seed:
         digest = hashlib.md5(args.seed.encode("utf-8")).digest()
         digest = int.from_bytes(digest, "big") % (2**32)
-        random_state = np.random.RandomState( (int(digest)+int(args.seed)) % (2**32))
+        random_state = np.random.RandomState( (int(digest)+int(year)) % (2**32))
     else:
-        digest = hashlib.md5(data_path.encode("utf-8")).digest()
+        digest = hashlib.md5(f"{data_path}/{year}".encode("utf-8")).digest()
         digest = int.from_bytes(digest, "big") % (2**32)
         random_state = np.random.RandomState( (int(digest)+int(year)) % (2**32))
     return random_state
@@ -37,7 +37,7 @@ def main(args):
     for year in years:
         print(year)
         populations = []
-        random_state = get_random_state(args, f"{data}/{year}")
+        random_state = get_random_state(args, data, year)
         if int(year) <= 1970 and args.doctype == "records":
             populations.append(glob(f"{data}/{year}/*-ak-*.xml"))
             populations.append(glob(f"{data}/{year}/*-fk-*.xml"))
@@ -68,10 +68,20 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-d", "--doctype", required=True, choices=["records", "motions"])
-    parser.add_argument("-n", "--number-to-sample-per-year", type=int)
-    parser.add_argument("--generate-seed", action="store_true")
-    parser.add_argument("--seed", default=None)
+    parser.add_argument("-d", "--doctype",
+                        required=True,
+                        choices=["records", "motions"],
+                        help="Choose the document type you want to sample")
+    parser.add_argument("-n", "--number-to-sample-per-year",
+                        type=int,
+                        default=3,
+                        help="Number of documents of type to sample per year and chamber")
+    parser.add_argument("--generate-seed",
+                        action="store_true",
+                        help="Generate a new seed based on the current datetime.")
+    parser.add_argument("--seed",
+                        default=None,
+                        help="Use a previously generated seed (e.g. to recreate a past sample)")
     args=parser.parse_args()
     if args.generate_seed:
         args.seed = datetime.now().strftime("%Y%m%d%H%M%S")
