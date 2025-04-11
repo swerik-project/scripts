@@ -26,12 +26,14 @@ def extract_elem_jointly(protocol, elem):
     if intro:
         next_elem = elem.getnext()
         if next_elem.tag == f"{TEI_NS}u":
+            next_elem = next_elem[0]
             if next_elem.text is not None:
                 print(f"concat intro ({text}) with next seg")
-                u_text = " ".join(elem.getnext()[0].text.split())
-                #u_text = u_text.split(".")[0]
+                u_text = " ".join(next_elem.text.split())
+                #if "." in u_text:
+                #    u_text = u_text.split(".")[0] + "."
                 text = text + " " + u_text
-                print(f"result: {text}")
+                #print(f"result: {text}")
 
     return text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
 
