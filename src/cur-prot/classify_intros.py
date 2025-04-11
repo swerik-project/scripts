@@ -24,10 +24,14 @@ def extract_elem_jointly(protocol, elem):
     intro = elem.attrib.get("type") == "speaker"
 
     if intro:
-        if elem.getnext().tag == f"{TEI_NS}u":
-            print(f"concat intro ({text}) with next seg")
-            text = text + " " + " ".join(elem.getnext()[0].text.split())
-            print(f"result: {text}")
+        next_elem = elem.getnext()
+        if next_elem.tag == f"{TEI_NS}u":
+            if next_elem.text is not None:
+                print(f"concat intro ({text}) with next seg")
+                u_text = " ".join(elem.getnext()[0].text.split())
+                #u_text = u_text.split(".")[0]
+                text = text + " " + u_text
+                print(f"result: {text}")
 
     return text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
 
@@ -91,6 +95,13 @@ def main(args):
             data.extend(extract_note_seg(os.path.join(folder, file), heuristic=args.join_heuristic))
         df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
         print(df)
+        N = len(df)
+        null_data = df[df.isnull().any(axis=1)]
+        df = df.dropna()
+        N_prime = len(df)
+        if N != N_prime:
+            print(f"{N - N_prime} null rows were omitted.")
+            print(null_data)
         df = predict_intro(df, cuda=args.cuda)
         intros.append(df)
 
