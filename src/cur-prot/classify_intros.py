@@ -12,7 +12,10 @@ import argparse
 from pyriksdagen.dataset import IntroDataset
 from functools import partial
 import os
-
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
 def extract_elem(protocol, elem):
     return elem.text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
@@ -58,53 +61,31 @@ def predict_intro(df, cuda):
 
 def main(args):
     intros = []
-    if args.protocol:
-        df = pd.DataFrame(
-            extract_note_seg(args.protocol),
-            columns=['text', 'id', 'file_path'])
-        df = predict_intro(df, cuda=args.cuda)
+    protocols = args.records
+    protocols = [os.path.split(p) for p in protocols]
+    protocol_df = pd.DataFrame(protocols, columns=['folder', 'file'])
+    protocol_df = protocol_df.sort_values(by=['folder', 'file'])
+    folders = sorted(set(protocol_df['folder']))
+
+    for folder in folders:
+        files = protocol_df.loc[protocol_df['folder'] == folder, 'file'].tolist()
+        data = []
+        for file in tqdm(files, total=len(files)):
+            data.extend(extract_note_seg(os.path.join(folder, file)))
+        df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
         print(df)
-    else:
-        # Create folder iterator for reasonably large batches
-        if args.records_folder is not None:
-            data_location = args.records_folder
-        else:
-            data_location = get_data_location("records")
-        protocols = protocol_iterators(data_location, start=args.start, end=args.end)
-        protocols = [os.path.split(p) for p in protocols]
-        protocol_df = pd.DataFrame(protocols, columns=['folder', 'file'])
-        protocol_df = protocol_df.sort_values(by=['folder', 'file'])
-        folders = sorted(set(protocol_df['folder']))
+        df = predict_intro(df, cuda=args.cuda)
+        intros.append(df)
 
-        for folder in folders:
-            files = protocol_df.loc[protocol_df['folder'] == folder, 'file'].tolist()
-            data = []
-            for file in tqdm(files, total=len(files)):
-                data.extend(extract_note_seg(os.path.join(folder, file)))
-            df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
-            print(df)
-            df = predict_intro(df, cuda=args.cuda)
-            intros.append(df)
-
-        df = pd.concat(intros)
+    df = pd.concat(intros)
     df.to_csv(args.outpath, index=False)
 
 
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-r", "--records-folder",
-                        type=str,
-                        default=None,
-                        help="(optional) Path to records folder, defaults to environment var or `data/`")
-    parser.add_argument("-p", "--protocol",
-                    type=str,
-                    default=None,
-                    help="operate on a single protocol")
+    parser = fetch_parser("records")
     parser.add_argument("--cuda", action="store_true", help="Set this flag to run with cuda.")
     parser.add_argument("--outpath", default="input/segmentation/intros.csv")
-    args = parser.parse_args()
+    args = impute_args(parser.parse_args())
     main(args)

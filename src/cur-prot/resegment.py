@@ -16,6 +16,10 @@ from pyriksdagen.utils import (
     protocol_iterators,
     write_protocol,
 )
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 from lxml import etree
 import pandas as pd
 import os, progressbar, argparse
@@ -24,17 +28,7 @@ import os, progressbar, argparse
 
 
 def main(args):
-    if args.protocol:
-        protocols = [args.protocol]
-    else:
-        if args.records_folder is not None:
-            data_location = args.records_folder
-        else:
-            data_location = get_data_location("records")
-        protocols = list(protocol_iterators(data_location,
-                                            start=args.start,
-                                            end=args.end))
-
+    protocols = args.records
     intro_df = pd.read_csv(args.segmentation_file)
 
     for protocol in progressbar.progressbar(protocols):
@@ -68,19 +62,9 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = fetch_parser("records")
     parser.add_argument("--segmentation_file",
                         type=str,
                         default="input/segmentation/intros.csv")
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-r", "--records-folder",
-                        type=str,
-                        default=None,
-                        help="(optional) Path to records folder, defaults to environment var or `data/`")
-    parser.add_argument("-p", "--protocol",
-                        type=str,
-                        default=None,
-                        help="operate on a single protocol")
-    args = parser.parse_args()
+    args = impute_args(parser.parse_args())
     main(args)
