@@ -9,7 +9,10 @@ from pyriksdagen.utils import protocol_iterators, get_data_location
 from tqdm import tqdm
 from multiprocessing import Pool
 from functools import partial
-
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
 
 
@@ -59,24 +62,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-
-
-    parser.add_argument("-s", "--start", type=int, default=1867, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-r", "--records-folder",
-                        type=str,
-                        default=None,
-                        help="(optional) Path to records folder, defaults to environment var or `data/`")
+    parser = fetch_parser("records")
     parser.add_argument("-m", "--metadata-root",
                         type=str,
                         default=None,
                         help="(optional) Path to metadata root folder, defaults to environment var or `data/`")
-    parser.add_argument("-p", "--protocol",
-                        type=str,
-                        default=None,
-                        help="operate on a single protocol")
     parser.add_argument("--parallel", type=int, default=1, help="N parallel processes (default=1)")
     parser.add_argument("--processed-metadata-folder", type=str, default="input/matching")
-    args = parser.parse_args()
+    args = impute_args(parser.parse_args())
     main(args)
