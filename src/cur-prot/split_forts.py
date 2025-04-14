@@ -47,6 +47,10 @@ def forts_herr(root):
                     elem.text = t1
                     newchild = etree.Element(f"{TEI_NS}note")
                     newchild.text = t2
+
+                    if elem.attrib.get("type") == "speaker":
+                        newchild.attrib["type"] = "speaker"
+                        del elem.attrib["type"]
                     elem.addnext(newchild)
 
 
