@@ -54,7 +54,7 @@ def main(args):
         pattern_db = pattern_db[
             (pattern_db["start"] <= year) & (pattern_db["end"] >= year)
         ]
-        root = find_introductions(root, pattern_db, intro_ids, minister_db=None)
+        root = find_introductions(root, pattern_db, intro_ids, minister_db=None, remove_missing=args.remove_negative)
 
         write_protocol(root, protocol)
 
@@ -66,5 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("--segmentation_file",
                         type=str,
                         default="input/segmentation/intros.csv")
+    parser.add_argument("--remove_negative", action="store_true",
+                        help="Also remove previously detected 'speaker' attributes. By default only finds new intros.")
     args = impute_args(parser.parse_args())
     main(args)
