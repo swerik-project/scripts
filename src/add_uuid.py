@@ -9,6 +9,10 @@ from pyriksdagen.utils import elem_iter, protocol_iterators, get_formatted_uuid
 from pyriksdagen.utils import TEI_NS, XML_NS
 from tqdm import tqdm
 import multiprocessing
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
 def add_protocol_id(protocol):
     ids = set()
@@ -69,7 +73,7 @@ def add_protocol_id(protocol):
 
 
 def main(args):
-    protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
+    protocols = args.records
     num_ids = 0
     ids = []
     with multiprocessing.Pool() as pool:
@@ -81,9 +85,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--records_folder", type=str, default="corpus/records")
-    parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=None, help="End year")
-    args = parser.parse_args()
+    parser = fetch_parser("records")
+    args = impute_args(parser.parse_args())
     main(args)
