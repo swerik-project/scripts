@@ -4,7 +4,7 @@ Find  introductions in the protocols using BERT. Used in tandem with resegment.p
 import pandas as pd
 from lxml import etree
 from transformers import AutoModelForSequenceClassification, BertTokenizerFast
-from pyriksdagen.utils import protocol_iterators, elem_iter, get_data_location
+from pyriksdagen.utils import protocol_iterators, elem_iter, get_data_location, TEI_NS
 import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -12,21 +12,47 @@ import argparse
 from pyriksdagen.dataset import IntroDataset
 from functools import partial
 import os
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
+def extract_elem_jointly(protocol, elem):
+    text = elem.text.split()
+    text = " ".join(text)
+    u = elem.tag[-1] == "u"
+    intro = elem.attrib.get("type") == "speaker"
+
+    if intro:
+        next_elem = elem.getnext()
+        if next_elem.tag == f"{TEI_NS}u":
+            next_elem = next_elem[0]
+            if next_elem.text is not None:
+                print(f"concat intro ({text}) with next seg")
+                u_text = " ".join(next_elem.text.split())
+                #if "." in u_text:
+                #    u_text = u_text.split(".")[0] + "."
+                text = text + " " + u_text
+                #print(f"result: {text}")
+
+    return text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
 
 def extract_elem(protocol, elem):
     return elem.text, elem.get("{http://www.w3.org/XML/1998/namespace}id"), protocol
 
 
-def extract_note_seg(protocol):
+def extract_note_seg(protocol, heuristic=False):
     parser = etree.XMLParser(remove_blank_text=True)
     root = etree.parse(protocol, parser).getroot()
     data = []
+    extract_elem_fun = extract_elem
+    if heuristic:
+        extract_elem_fun = extract_elem_jointly
     for tag, elem in elem_iter(root):
         if tag == 'note':
-            data.append(extract_elem(protocol, elem))
+            data.append(extract_elem_fun(protocol, elem))
         elif tag == 'u':
-            data.extend(list(map(partial(extract_elem, protocol), elem)))
+            data.extend(list(map(partial(extract_elem_fun, protocol), elem)))
     return data
 
 
@@ -58,53 +84,39 @@ def predict_intro(df, cuda):
 
 def main(args):
     intros = []
-    if args.protocol:
-        df = pd.DataFrame(
-            extract_note_seg(args.protocol),
-            columns=['text', 'id', 'file_path'])
-        df = predict_intro(df, cuda=args.cuda)
+    protocols = args.records
+    protocols = [os.path.split(p) for p in protocols]
+    protocol_df = pd.DataFrame(protocols, columns=['folder', 'file'])
+    protocol_df = protocol_df.sort_values(by=['folder', 'file'])
+    folders = sorted(set(protocol_df['folder']))
+
+    for folder in folders:
+        files = protocol_df.loc[protocol_df['folder'] == folder, 'file'].tolist()
+        data = []
+        for file in tqdm(files, total=len(files)):
+            data.extend(extract_note_seg(os.path.join(folder, file), heuristic=args.join_heuristic))
+        df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
         print(df)
-    else:
-        # Create folder iterator for reasonably large batches
-        if args.records_folder is not None:
-            data_location = args.records_folder
-        else:
-            data_location = get_data_location("records")
-        protocols = protocol_iterators(data_location, start=args.start, end=args.end)
-        protocols = [os.path.split(p) for p in protocols]
-        protocol_df = pd.DataFrame(protocols, columns=['folder', 'file'])
-        protocol_df = protocol_df.sort_values(by=['folder', 'file'])
-        folders = sorted(set(protocol_df['folder']))
+        N = len(df)
+        null_data = df[df.isnull().any(axis=1)]
+        df = df.dropna()
+        N_prime = len(df)
+        if N != N_prime:
+            print(f"{N - N_prime} null rows were omitted.")
+            print(null_data)
+        df = predict_intro(df, cuda=args.cuda)
+        intros.append(df)
 
-        for folder in folders:
-            files = protocol_df.loc[protocol_df['folder'] == folder, 'file'].tolist()
-            data = []
-            for file in tqdm(files, total=len(files)):
-                data.extend(extract_note_seg(os.path.join(folder, file)))
-            df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
-            print(df)
-            df = predict_intro(df, cuda=args.cuda)
-            intros.append(df)
-
-        df = pd.concat(intros)
+    df = pd.concat(intros)
     df.to_csv(args.outpath, index=False)
 
 
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-r", "--records-folder",
-                        type=str,
-                        default=None,
-                        help="(optional) Path to records folder, defaults to environment var or `data/`")
-    parser.add_argument("-p", "--protocol",
-                    type=str,
-                    default=None,
-                    help="operate on a single protocol")
+    parser = fetch_parser("records")
     parser.add_argument("--cuda", action="store_true", help="Set this flag to run with cuda.")
+    parser.add_argument("--join_heuristic", action="store_true", help="Jointly predict intros that have been previously split")
     parser.add_argument("--outpath", default="input/segmentation/intros.csv")
-    args = parser.parse_args()
+    args = impute_args(parser.parse_args())
     main(args)
