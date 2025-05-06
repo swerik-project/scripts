@@ -16,8 +16,7 @@ from pyriksdagen.args import (
 
 def add_protocol_id(protocol):
     ids = set()
-    parser = etree.XMLParser(remove_blank_text=True)
-    root = etree.parse(protocol, parser).getroot()
+    root, _ = parse_protocol(protocol, get_ns=True)
     
     # Accomodate both TEI and teiCorpus root
     tei = root.find(f"{TEI_NS}TEI")
