@@ -14,7 +14,10 @@ from pyriksdagen.utils import (
 from tqdm import tqdm
 import argparse
 import multiprocessing
-
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
 
 
@@ -64,19 +67,9 @@ def add_protocol_id(protocol):
 
 def main(args):
 
+    protocols = args.records
     num_ids = 0
     ids = []
-
-    if args.protocol:
-        protocols = [args.protocol]
-    else:
-        if args.records_folder is not None:
-            data_location = args.records_folder
-        else:
-            protocols = sorted(list(protocol_iterators(
-                                            get_data_location("records"),
-                                            start=args.start, end=args.end)))
-
     with multiprocessing.Pool() as pool:
         for i, n in tqdm(pool.imap(add_protocol_id, protocols), total=len(protocols)):
             ids += i
@@ -88,16 +81,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-r", "--records-folder",
-                        type=str,
-                        default=None,
-                        help="(optional) Path to records folder, defaults to environment var or `data/`")
-    parser.add_argument("-p", "--protocol",
-                        type=str,
-                        default=None,
-                        help="operate on a single protocol. Set the full path -- this option doesn't cooperate with `-r`.")
-    args = parser.parse_args()
+    parser = fetch_parser("records")
+    args = impute_args(parser.parse_args())
     main(args)

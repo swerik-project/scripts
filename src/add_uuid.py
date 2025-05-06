@@ -48,6 +48,7 @@ def add_protocol_id(protocol):
             ids.add(x)
             num_ids += 1
 
+    # Add IDs for divs
     for body in root.findall(f".//{TEI_NS}body"):
         for div in body:
             elem_id_list = [elem.attrib.get(f'{XML_NS}id') for elem in div]
@@ -62,11 +63,7 @@ def add_protocol_id(protocol):
             ids.add(x)
             num_ids += 1
 
-    b = etree.tostring(
-        root, pretty_print=True, encoding="utf-8", xml_declaration=True
-    )
-    f = open(protocol, "wb")
-    f.write(b)
+    write_protocol(root, protocol)
 
     assert len(ids) == num_ids
     return ids, num_ids
