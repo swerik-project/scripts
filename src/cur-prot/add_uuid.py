@@ -1,56 +1,64 @@
 """
-Add a randomly generated UUID to all elements in the XML ID field that are currently missing one.
+Add a randomly generated UUID to all elements in the XML ID attribute that are currently missing one.
+
+Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
 """
 from lxml import etree
-from pathlib import Path
-from pyriksdagen.utils import (
-    elem_iter,
-    get_formatted_uuid,
-    get_data_location,
-    parse_protocol,
-    protocol_iterators,
-    write_protocol,
-)
-from tqdm import tqdm
 import argparse
+from pyriksdagen.utils import elem_iter, protocol_iterators, get_formatted_uuid
+from pyriksdagen.utils import TEI_NS, XML_NS
+from tqdm import tqdm
 import multiprocessing
-
-
-
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
 def add_protocol_id(protocol):
     ids = set()
+    root, _ = parse_protocol(protocol, get_ns=True)
+    
+    # Accomodate both TEI and teiCorpus root
+    tei = root.find(f"{TEI_NS}TEI")
+    if root.tag.split("}")[-1] == "TEI":
+        tei = root
+
+    # Set ID for TEI element to be the filename
+    if f"{XML_NS}id" not in tei.attrib:
+        tei.attrib[f"{XML_NS}id"] = protocol.split("/")[-1][:-4]
+
+    # Create UUIDs for other elements
     num_ids = 0
-
-    root, ns = parse_protocol(protocol, get_ns=True)
-
-    body = root.find(f".//{ns['tei_ns']}body")
-    if body is None:
-        print(protocol)
-    else:
-        divs = body.findall(f"{ns['tei_ns']}div")
-        for div in divs:
-            protocol_id = Path(protocol).stem
-            seed_str = f"{protocol_id}\n{' '.join(div.itertext())}"
-            x = div.attrib.get(f"{ns['xml_ns']}id", get_formatted_uuid(seed_str))
-            div.attrib[f"{ns['xml_ns']}id"] = x
-            num_ids += 1
-            ids.add(x)
-
     for tag, elem in elem_iter(root):
         if tag == "u":
             for subelem in elem:
-                x = subelem.attrib.get(f"{ns['xml_ns']}id", get_formatted_uuid())
-                subelem.attrib[f"{ns['xml_ns']}id"] = x
+                x = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+                subelem.attrib[f'{XML_NS}id'] = x
                 ids.add(x)
                 num_ids += 1
-            x = elem.attrib.get(f"{ns['xml_ns']}id", get_formatted_uuid())
-            elem.attrib[f"{ns['xml_ns']}id"] = x
+            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
+                
         elif tag in ["note"]:
-            x = elem.attrib.get(f"{ns['xml_ns']}id", get_formatted_uuid())
-            elem.attrib[f"{ns['xml_ns']}id"] = x
+            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
+            ids.add(x)
+            num_ids += 1
+
+    # Add IDs for divs
+    for body in root.findall(f".//{TEI_NS}body"):
+        for div in body:
+            elem_id_list = [elem.attrib.get(f'{XML_NS}id') for elem in div]
+            elem_id_list = [elem_id for elem_id in elem_id_list if elem_id is not None]
+            elem_id_list = '\n'.join(elem_id_list)
+            seed_str =  f"div\n{elem_id_list}"
+            new_div_id = get_formatted_uuid(seed_str)
+            if f'{XML_NS}id' not in div.attrib:
+                print(seed_str, new_div_id)
+            x = div.get(f'{XML_NS}id', new_div_id)
+            div.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
 
@@ -60,23 +68,10 @@ def add_protocol_id(protocol):
     return ids, num_ids
 
 
-
-
 def main(args):
-
+    protocols = args.records
     num_ids = 0
     ids = []
-
-    if args.protocol:
-        protocols = [args.protocol]
-    else:
-        if args.records_folder is not None:
-            data_location = args.records_folder
-        else:
-            protocols = sorted(list(protocol_iterators(
-                                            get_data_location("records"),
-                                            start=args.start, end=args.end)))
-
     with multiprocessing.Pool() as pool:
         for i, n in tqdm(pool.imap(add_protocol_id, protocols), total=len(protocols)):
             ids += i
@@ -85,19 +80,7 @@ def main(args):
         assert len(set(ids)) == num_ids
 
 
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
-    parser.add_argument("-r", "--records-folder",
-                        type=str,
-                        default=None,
-                        help="(optional) Path to records folder, defaults to environment var or `data/`")
-    parser.add_argument("-p", "--protocol",
-                        type=str,
-                        default=None,
-                        help="operate on a single protocol. Set the full path -- this option doesn't cooperate with `-r`.")
-    args = parser.parse_args()
+    parser = fetch_parser("records")
+    args = impute_args(parser.parse_args())
     main(args)
