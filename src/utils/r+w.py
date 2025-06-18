@@ -30,7 +30,7 @@ def main(args):
 
 if __name__ == '__main__':
 
-    def _errmahgerd(err, corpora):
+    def _no_doctype_arg_error(err, corpora):
         errs = {
                 1: "You didn't set any first argument.",
                 2: "You passed an invalid doctype."
@@ -44,9 +44,9 @@ if __name__ == '__main__':
             "volg": volg_parser,
         }
     if not sys.argv[1]:
-        _errmahgerd(1, corpora)
+        _no_doctype_arg_error(1, corpora)
     if sys.argv[1][2:] in corpora:
         parser = fetch_parser(sys.argv[1][2:], docstring=__doc__)
         main(impute_args(parser.parse_args(sys.argv[2:])))
     else:
-        _errmahgerd(2, corpora)
+        _no_doctype_arg_error(2, corpora)
