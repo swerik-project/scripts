@@ -17,7 +17,6 @@ from pyriksdagen.args import (
 
 
 def main(args):
-    
     if args.metadata_root is not None:
         metadata_location = args.metadata_root
     else:
@@ -28,19 +27,14 @@ def main(args):
         df[["start", "end"]] = df[["start", "end"]].apply(pd.to_datetime, format='%Y-%m-%d')
     metadata = [party_mapping] + dfs
 
-    if args.protocol:
-        protocols = [args.protocol]
+    if args.records:
+        protocols = args.records
     else:
-        if args.records_folder is not None:
-            data_location = args.records_folder
-        else:
-            data_location = get_data_location("records")
-        protocols = sorted(list(protocol_iterators(data_location,
-                                                    start=args.start,
-                                                    end=args.end)))
+        raise ValueError("no records")
+
     unknowns = []
     redetect_fun = partial(redetect_protocol, metadata)
-    if args.parallel == 1:
+    if args.parallel != 1:
         pool = Pool()
         for unk in tqdm(pool.imap(redetect_fun, protocols), total=len(protocols)):
             unknowns.extend(unk)
