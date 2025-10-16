@@ -11,7 +11,7 @@ from pyriksdagen.args import (
     fetch_parser,
     impute_args,
 )
-import polars as pl
+import pandas as pd
 import string
 
 def process_signature_block(text, surnames):
@@ -74,7 +74,7 @@ def process_motion(motion_path, surnames):
 
 
 def main(args):
-    df_names = pl.read_csv("resources/last_names.csv")
+    df_names = pd.read_csv("resources/last_names.csv")
     surnames = set([name for name in df_names["name"] if len(name) >= 2])
 
     for motion in tqdm.tqdm(args.motions):
