@@ -1,6 +1,6 @@
 """
 Splits the signature block of a motion with multiple names
-into multiple items. Currently optimized for 1950–1968ish
+into multiple items. Currently optimized for 1950–1966ish
 """
 from lxml import etree
 import argparse
