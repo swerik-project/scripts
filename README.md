@@ -1,6 +1,8 @@
 # Scripts – Data curation and processing logic for the Swedish Parliament Motion Corpus 
 
-TODO: description
+This repository contains the necessary scripts for the processing and curation of the
+Swedish Parliament Motion corpus. The scripts are written in Python, and documented
+with docstrings that can be seen by running each script with the ```--help``` flag.
 
 ## General setup and use
 
@@ -21,11 +23,3 @@ or from a local copy in the [pyriksdagen repo](https://github.com/swerik-project
 ```
 pip install .
 ```
-
-## Curating motions
-
-TODO
-
-## Quality Control
-
-TODO
