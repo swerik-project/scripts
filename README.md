@@ -3,6 +3,7 @@
 This repository contains the necessary scripts for the processing and curation of the
 Swedish Parliament Motion corpus. The scripts are written in Python, and documented
 with docstrings that can be seen by running each script with the ```--help``` flag.
+Most of the important scripts are located in the ```src/cur-mot/``` folder.
 
 ## General setup and use
 
