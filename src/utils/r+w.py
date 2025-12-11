@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Read and write the records corpus.
+Parse a corpus and write it back to disk.
 """
 from pyriksdagen.args import (
-    fetch_parser,
+    fetch_doctype_parser,
     impute_args,
 )
 from pyriksdagen.io import (
@@ -11,18 +11,21 @@ from pyriksdagen.io import (
     write_tei,
 )
 from tqdm import tqdm
+import sys
 
 
 
 
 def main(args):
-    for record in tqdm(args.records):
-        root, ns = parse_tei(record)
-        write_tei(root, record)
+    argd = vars(args)
+    for doc in tqdm(argd[argd["doctype"]]):
+        write_tei(parse_tei(doc, get_ns=False), doc)
 
 
 
 
 if __name__ == '__main__':
-    parser = fetch_parser("records", docstring=__doc__)
-    main(impute_args(parser.parse_args()))
+    parser, argstring = fetch_doctype_parser(sys.argv, docstring=__doc__)
+    main(impute_args(parser.parse_args(argstring)))
+
+
