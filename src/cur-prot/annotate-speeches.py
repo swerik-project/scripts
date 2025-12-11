@@ -66,7 +66,7 @@ def add_speeches_to_metadata(speeches, root, ns):
         assert constitution is not None
     except Exception as e:
         try:
-            profileDesc = teiHeader.find(f"{ns['tei_ns']}")
+            profileDesc = teiHeader.find(f"{ns['tei_ns']}profileDesc")
             assert profileDesc is not None
             logger.debug("profileDesc elem found")
         except:
