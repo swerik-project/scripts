@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-replace_unknown_speakers_goldstandard.py
-
 Scans speaker-segments folder (is-speaker / non-speaker) and applies the mappings.
 Handles nested <u> and <seg> elements, propagates 'who' and 'type'.
 Correctly propagates speaker along <u> next/prev chains and following siblings,
@@ -16,26 +14,30 @@ import os
 import pandas as pd
 from pyriksdagen.io import parse_tei, write_tei
 import sys
+from trainerlog import get_logger
+from tqdm import tqdm
 from typing import Dict, Tuple
 
-def propagate_speaker_from_note(note_el: etree._Element):
+logger = None
+
+
+def propagate_speaker_from_note(note_el, person_id):
     """
-    After a <note type="speaker" who="...">, propagate the speaker ID
-    to all following <u> siblings (and their next chain) with who="unknown",
-    even if <note> or <pb> elements appear in between.
-    Stops when another <note type="speaker"> appears.
+    Propagate speaker from a <note type="speaker"> to following <u> elements
+    with who missing or 'unknown'. Never reads or writes @who on <note>.
     """
     modified = False
-    speaker_id = note_el.get('who')
-    if not speaker_id:
-        return modified
 
     parent = note_el.getparent()
     if parent is None:
         return modified
 
-    # Build a lookup map for <u> by xml:id
-    u_map = {u.get('xml:id'): u for u in parent.iter() if u.tag.endswith('u') and u.get('xml:id')}
+    # Lookup for chained <u> elements
+    u_map = {
+        u.get('xml:id'): u
+        for u in parent.iter()
+        if u.tag.endswith('u') and u.get('xml:id')
+    }
 
     siblings = list(parent)
     try:
@@ -44,85 +46,79 @@ def propagate_speaker_from_note(note_el: etree._Element):
         return modified
 
     for sib in siblings[idx + 1:]:
-        # Stop if a new speaker note appears
+        # Stop at next speaker note
         if sib.tag.endswith('note') and sib.get('type') == 'speaker':
             break
 
-        # Skip over neutral notes or page breaks, but continue later
+        # Skip neutral elements
         if sib.tag.endswith(('note', 'pb')):
             continue
 
         if sib.tag.endswith('u'):
-            # Update <u> if who unknown or missing
             if sib.get('who') in (None, 'unknown'):
-                sib.set('who', speaker_id)
+                sib.set('who', person_id)
                 modified = True
 
-            # Update any nested <u>
+            # Nested <u>
             for child in sib.iter():
-                if child.tag.endswith(('u')) and child.get('who') in (None, 'unknown'):
-                    child.set('who', speaker_id)
+                if child.tag.endswith('u') and child.get('who') in (None, 'unknown'):
+                    child.set('who', person_id)
                     modified = True
 
-            # Follow next chain even if other siblings appear between
+            # Follow @next chain
             next_id = sib.get('next')
             while next_id:
                 next_el = u_map.get(next_id)
                 if next_el is None:
                     break
                 if next_el.get('who') in (None, 'unknown'):
-                    next_el.set('who', speaker_id)
+                    next_el.set('who', person_id)
                     modified = True
-                for child in next_el.iter():
-                    if child.tag.endswith(('u')) and child.get('who') in (None, 'unknown'):
-                        child.set('who', speaker_id)
-                        modified = True
                 next_id = next_el.get('next')
 
     return modified
 
 
-def apply_speaker_on_note_sibling(note_el: etree._Element):
-    """Annotate the first <u> sibling after note with who='unknown', then propagate."""
-    modified = False
+
+def apply_speaker_on_note_sibling(note_el, person_id):
+    """
+    Find the first following <u> with who missing/unknown and propagate speaker.
+    """
     parent = note_el.getparent()
     if parent is None:
-        return modified
+        return False
 
     found_note = False
     for el in parent:
         if el == note_el:
             found_note = True
             continue
-        if found_note and el.tag.endswith('u') and (el.get('who') in (None, 'unknown')):
-            propagate_speaker_from_note(note_el)
-            modified = True
-            break
+        if found_note and el.tag.endswith('u') and el.get('who') in (None, 'unknown'):
+            return propagate_speaker_from_note(note_el, person_id)
 
-    return modified
+    return False
 
 
-def apply_speaker_recursively(el: etree._Element, person_id: str, folder_type: str) -> bool:
-    """Recursively update 'who' and 'type' attributes for speaker/non-speaker blocks."""
+def apply_speaker_recursively(el, person_id, folder_type):
     modified = False
 
     if folder_type == 'is-speaker':
         if el.tag.endswith('note'):
+            # Only type="speaker" is allowed on <note>
             if el.get('type') != 'speaker':
                 el.set('type', 'speaker')
                 modified = True
-            if el.get('who') != person_id:
-                el.set('who', person_id)
-                modified = True
-            # Propagate to next <u> chain if applicable
-            if apply_speaker_on_note_sibling(el):
-                modified = True
+
+            # Propagate to <u>, but NEVER set who on <note>
+            modified |= apply_speaker_on_note_sibling(el, person_id)
+
         elif el.tag.endswith('u'):
             if el.get('who') in (None, 'unknown'):
                 el.set('who', person_id)
                 modified = True
+
     else:  # non-speaker
-        if el.tag.endswith(('note', 'u', 'seg')) and el.get('who') == 'unknown':
+        if el.tag.endswith(('u', 'seg')) and el.get('who') == 'unknown':
             el.attrib.pop('who', None)
             modified = True
         if el.tag.endswith('note') and el.get('type') == 'speaker':
@@ -130,78 +126,113 @@ def apply_speaker_recursively(el: etree._Element, person_id: str, folder_type: s
             modified = True
 
     for child in el:
-        if apply_speaker_recursively(child, person_id, folder_type):
-            modified = True
+        modified |= apply_speaker_recursively(child, person_id, folder_type)
 
     return modified
 
 
-def handle_row_on_element(el: etree._Element, row: Dict, folder_type: str) -> Tuple[str, str]:
+def handle_row_on_element(el, row, folder_type):
     person_id = row.get('person_id')
     modified = apply_speaker_recursively(el, person_id, folder_type)
     if modified:
-        return 'success', 'speaker added/updated' if folder_type == 'is-speaker' else 'non-speaker cleaned'
+        if folder_type == 'is-speaker':
+            message = 'speaker added/updated'
+        else:
+            message = 'non-speaker cleaned'
+        return 'success', message
     else:
         return 'already_fixed', 'already correct'
 
 
-def group_rows_by_folder(data_base: str) -> Dict[str, list]:
-    groups = defaultdict(list)
+def group_rows_by_folder(input_path, logger):
+    """
+    Scan 'is-speaker' and 'non-speaker' subfolders, read TSV files, and
+    group rows by protocol_id. Logs a warning if a folder is missing.
+    """
+    groups = {}
+
     for folder in ['is-speaker', 'non-speaker']:
-        folder_path = os.path.join(data_base, folder)
+        folder_path = os.path.join(input_path, folder)
         if not os.path.exists(folder_path):
+            logger.warning(f"Folder not found, skipping: {folder_path}")
             continue
+
         for file_name in os.listdir(folder_path):
-            if not file_name.lower().endswith(".tsv"):
+            if not file_name.lower().endswith('.tsv'):
                 continue
             csv_path = os.path.join(folder_path, file_name)
             df = pd.read_csv(csv_path, sep="\t", dtype=str).fillna('')
             for idx, row in df.iterrows():
-                xml_path = row['protocol_id']
-                groups[xml_path].append({'index': idx, **row.to_dict(), 'folder_type': folder})
+                if 'protocol_id' not in row or not row['protocol_id']:
+                    logger.error(f"Row {idx} in {csv_path} has no protocol_id, skipping")
+                    continue
+
+                xml_path = os.path.join("riksdagen-records", row['protocol_id'])
+                uuid = row.get('uuid')
+                if not uuid:
+                    logger.error(f"Row {idx} in {csv_path} has no UUID, skipping")
+                    continue
+
+                if xml_path not in groups:
+                    groups[xml_path] = []
+                groups[xml_path].append({
+                    'index': idx,
+                    'uuid': uuid,
+                    **row.to_dict(),
+                    'folder_type': folder
+                })
+                
     return groups
 
 
-def find_element_by_xml_id(root: etree._Element, uuid: str) -> etree._Element:
-    xml_id_attr = '{http://www.w3.org/XML/1998/namespace}id'
-    for el in root.iter():
-        if el.get(xml_id_attr) == uuid:
-            return el
-    return None
+def find_element_by_xml_id(root, uuid):
+    """
+    Find an element by its xml:id using XPath and proper namespace handling.
+    Returns None if not found.
+    """
+    if not uuid:
+        return None
+
+    ns = {
+        'xml': 'http://www.w3.org/XML/1998/namespace',
+        'tei': 'http://www.tei-c.org/ns/1.0'
+    }
+
+    xpath_expr = f".//*[@xml:id='{uuid}']"
+    result = root.xpath(xpath_expr, namespaces=ns)
+
+    return result[0] if result else None
 
 
-def process_file_task(args):
-    file_path, rows = args
-    success_rows = []
-    already_fixed_rows = []
-    failures = []
+
+def process_file_task(file_path, rows):
+    success_rows, already_fixed_rows, failures = [], [], []
 
     if not os.path.exists(file_path):
-        for r in rows:
-            failures.append((r['index'], f"File not found: {file_path}"))
+        failures.extend((r['index'], f"File not found: {file_path}") for r in rows)
         return len(success_rows), len(already_fixed_rows), len(failures), failures
 
     try:
         root, ns = parse_tei(file_path, get_ns=True)
     except Exception as e:
-        for r in rows:
-            failures.append((r['index'], f"Failed to parse XML: {e}"))
+        failures.extend((r['index'], f"Failed to parse XML: {e}") for r in rows)
         return len(success_rows), len(already_fixed_rows), len(failures), failures
 
     for r in rows:
         idx = r['index']
         folder_type = r['folder_type']
         uuid = r.get('uuid')
+
         if not uuid:
-            failures.append((idx, f"No UUID provided in row"))
+            failures.append((idx, file_path, "No UUID provided in row"))
             continue
+
         el = find_element_by_xml_id(root, uuid)
         if el is None:
-            failures.append((idx, f"Element with xml:id={uuid} not found"))
+            failures.append((idx, file_path, f"Element with xml:id={uuid} not found"))
             continue
 
-
-        result, msg = handle_row_on_element(el, r, folder_type)
+        result, _ = handle_row_on_element(el, r, folder_type)
         if result == 'success':
             success_rows.append(idx)
         else:
@@ -211,20 +242,24 @@ def process_file_task(args):
         try:
             write_tei(root, file_path)
         except Exception as e:
-            for idx in success_rows:
-                failures.append((idx, f"Failed to write back file: {e}"))
-            success_rows = []
+            failures.extend((idx, f"Failed to write back file: {e}") for idx in success_rows)
+            success_rows.clear()
 
     return len(success_rows), len(already_fixed_rows), len(failures), failures
 
+def process_file_task_star(args):
+    """Unpack tuple for multiprocessing"""
+    return process_file_task(*args)
 
 def main(args):
+    logger = get_logger(name="speaker_mapper", level=args.loglevel)
     input_path = args.folder
 
-    grouped = defaultdict(list)
+    grouped = group_rows_by_folder(input_path, logger)
 
     # If it's a single TSV/CSV file
     if os.path.isfile(input_path) and input_path.lower().endswith(('.tsv', '.csv')):
+        logger.debug(f"Reading single file: {input_path}")
         df = pd.read_csv(input_path, sep="\t" if input_path.endswith('.tsv') else ",", dtype=str).fillna('')
         # Group by protocol_id
         for idx, row in df.iterrows():
@@ -239,58 +274,80 @@ def main(args):
             })
     elif os.path.isdir(input_path):
         # Scan the folder for is-speaker / non-speaker
-        grouped = group_rows_by_folder(input_path)
+        logger.debug(f"Scanning directory: {input_path}")
+        grouped = group_rows_by_folder(input_path, logger)
     else:
-        print(f"[ERROR] Path not found or not valid: {input_path}")
-        sys.exit(1)
+        logger.error(f"Path not found or not valid: {input_path}")
+        return
 
     tasks = [(file_path, rows) for file_path, rows in grouped.items()]
 
     if not tasks:
-        print("[INFO] No files to process.")
-        sys.exit(0)
+        logger.info("No files to process.")
+        return
 
     total_rows = sum(len(rows) for rows in grouped.values())
     n_workers = min(cpu_count() or 1, max(1, len(tasks)))
-    print(f"Processing {len(tasks)} files using {n_workers} workers...")
+    logger.info(f"Processing {len(tasks)} files using {n_workers} workers...")
 
     total_success = 0
     total_already_fixed = 0
     total_failures = 0
     all_failures_list = []
 
-    with Pool(n_workers) as pool:
-        results = pool.map(process_file_task, tasks)
+    if args.multithread:
+        logger.info(f"Processing {len(tasks)} files using {n_workers} workers (multithreaded)...")
+        with Pool(n_workers) as pool:
+            results = []
+            for res in tqdm(pool.imap_unordered(process_file_task_star, tasks), total=len(tasks)):
+                results.append(res)
+    else:
+        logger.info(f"Processing {len(tasks)} files using a single thread...")
+        results = [process_file_task(file_path, rows) for file_path, rows in tqdm(tasks)]
+
 
     for succ_count, fixed_count, fail_count, fail_list in results:
         total_success += succ_count
         total_already_fixed += fixed_count
         total_failures += fail_count
-        all_failures_list.extend([(i, reason) for (i, reason) in fail_list])
+        all_failures_list.extend([(i, fpath, reason) for (i, fpath, reason) in fail_list])
+
 
     if all_failures_list:
-        fail_df = pd.DataFrame(all_failures_list, columns=['row_index', 'reason'])
+        fail_df = pd.DataFrame(all_failures_list, columns=['row_index', 'file_path', 'reason'])
         fail_df.to_csv("speaker_mapping_failures.tsv", sep="\t", index=False)
-        print(f"Written {len(all_failures_list)} failures to speaker_mapping_failures.tsv")
+        logger.warning(f"Written {len(all_failures_list)} failures to speaker_mapping_failures.tsv")
 
-    print(f"\nSummary:")
-    print(f"  Total rows scanned       : {total_rows}")
-    print(f"  Successful modifications : {total_success}")
-    print(f"  Already fixed            : {total_already_fixed}")
-    print(f"  Failures reported        : {total_failures}")
+    logger.info(f"\nSummary:")
+    logger.info(f"Total rows scanned       : {total_rows}")
+    logger.info(f"Successful modifications : {total_success}")
+    logger.info(f"Already fixed            : {total_already_fixed}")
+    logger.info(f"Failures reported        : {total_failures}")
 
     if total_success + total_already_fixed + total_failures != total_rows:
-        print("Warning: totals do not match total rows scanned!")
+        logger.warning("Totals do not match total rows scanned!")
 
     if total_failures:
-        print("Some rows were not applied correctly or failed.")
-        sys.exit(3)
-    else:
-        print("All rows successfully applied.")
-        sys.exit(0)
+        logger.error("Some rows were not applied correctly or failed.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Apply speaker mappings from speaker-segments folders or single TSV/CSV files.")
-    parser.add_argument("--folder", required=True, help="Base folder containing is-speaker / non-speaker subfolders, or a TSV/CSV file with failures.")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--folder",
+        required=True,
+        help="Base folder containing is-speaker / non-speaker subfolders, or a TSV/CSV file with failures."
+    )
+    parser.add_argument(
+        "--multithread",
+        action="store_true",
+        help="Enable multithreading for processing files (default: False)."
+    )
+    parser.add_argument(
+        "--loglevel",
+        default="DEBUG",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set logging level (default: DEBUG)"
+    )
     args = parser.parse_args()
-    main()
+
+    main(args)
