@@ -7,16 +7,12 @@ but only annotates <u> and <seg> blocks where who="unknown".
 Counters now correctly sum using multiprocessing.
 """
 import argparse
-from collections import defaultdict
-from lxml import etree
 from multiprocessing import Pool, cpu_count
 import os
 import pandas as pd
 from pyriksdagen.io import parse_tei, write_tei
-import sys
 from trainerlog import get_logger
 from tqdm import tqdm
-from typing import Dict, Tuple
 
 logger = None
 
@@ -79,7 +75,6 @@ def propagate_speaker_from_note(note_el, person_id):
     return modified
 
 
-
 def apply_speaker_on_note_sibling(note_el, person_id):
     """
     Find the first following <u> with who missing/unknown and propagate speaker.
@@ -104,13 +99,14 @@ def apply_speaker_recursively(el, person_id, folder_type):
 
     if folder_type == 'is-speaker':
         if el.tag.endswith('note'):
-            # Only type="speaker" is allowed on <note>
             if el.get('type') != 'speaker':
                 el.set('type', 'speaker')
                 modified = True
 
-            # Propagate to <u>, but NEVER set who on <note>
-            modified |= apply_speaker_on_note_sibling(el, person_id)
+            propagated = apply_speaker_on_note_sibling(el, person_id)
+            if propagated:
+                modified = True
+
 
         elif el.tag.endswith('u'):
             if el.get('who') in (None, 'unknown'):
@@ -204,19 +200,25 @@ def find_element_by_xml_id(root, uuid):
     return result[0] if result else None
 
 
-
 def process_file_task(file_path, rows):
+    """
+    Process a single TEI file and apply speaker/non-speaker updates.
+    Uses pyriksdagen.io.write_tei() to serialize changes back to disk.
+
+    Returns:
+        tuple: (num_success, num_already_fixed, num_failures, failure_list)
+    """
     success_rows, already_fixed_rows, failures = [], [], []
 
     if not os.path.exists(file_path):
-        failures.extend((r['index'], f"File not found: {file_path}") for r in rows)
-        return len(success_rows), len(already_fixed_rows), len(failures), failures
+        failures.extend([(r['index'], file_path, "File not found") for r in rows])
+        return 0, 0, len(failures), failures
 
     try:
         root, ns = parse_tei(file_path, get_ns=True)
     except Exception as e:
-        failures.extend((r['index'], f"Failed to parse XML: {e}") for r in rows)
-        return len(success_rows), len(already_fixed_rows), len(failures), failures
+        failures.extend([(r['index'], file_path, f"Failed to parse XML: {e}") for r in rows])
+        return 0, 0, len(failures), failures
 
     for r in rows:
         idx = r['index']
@@ -242,38 +244,65 @@ def process_file_task(file_path, rows):
         try:
             write_tei(root, file_path)
         except Exception as e:
-            failures.extend((idx, f"Failed to write back file: {e}") for idx in success_rows)
+            failures.extend([(idx, file_path, f"Failed to write back XML: {e}") for idx in success_rows])
             success_rows.clear()
 
     return len(success_rows), len(already_fixed_rows), len(failures), failures
+
+
 
 def process_file_task_star(args):
     """Unpack tuple for multiprocessing"""
     return process_file_task(*args)
 
+def add_row_to_grouped(groups, row, folder_type, logger=None):
+    """
+    Add a row to the grouped dictionary by protocol_id.
+    Constructs the full XML path and ensures UUID exists.
+    Returns True if added successfully, False otherwise.
+    """
+    idx = row.get('index')
+    protocol_id = row.get('protocol_id')
+    if not protocol_id:
+        if logger:
+            logger.error(f"Row {idx} has no protocol_id, skipping")
+        return False
+
+    xml_path = os.path.join("riksdagen-records", protocol_id)
+    uuid = row.get('uuid')
+    if not uuid:
+        if logger:
+            logger.error(f"Row {idx} in {xml_path} has no UUID, skipping")
+        return False
+
+    if xml_path not in groups:
+        groups[xml_path] = []
+
+    groups[xml_path].append({
+        'index': idx,
+        'uuid': uuid,
+        **row.to_dict(),
+        'folder_type': folder_type
+    })
+    return True
+
 def main(args):
     logger = get_logger(name="speaker_mapper", level=args.loglevel)
     input_path = args.folder
+    grouped = {}
 
-    grouped = group_rows_by_folder(input_path, logger)
-
-    # If it's a single TSV/CSV file
     if os.path.isfile(input_path) and input_path.lower().endswith(('.tsv', '.csv')):
         logger.debug(f"Reading single file: {input_path}")
-        df = pd.read_csv(input_path, sep="\t" if input_path.endswith('.tsv') else ",", dtype=str).fillna('')
-        # Group by protocol_id
+        df = pd.read_csv(
+            input_path, 
+            sep="\t" if input_path.endswith('.tsv') else ",", 
+            dtype=str
+        ).fillna('')
         for idx, row in df.iterrows():
-            xml_path = row['protocol_id']
-            # pick the correct element uuid
-            uuid = row.get('new_uuid') or row.get('original_uuid')
-            grouped[xml_path].append({
-                'index': idx,
-                'uuid': uuid,
-                **row.to_dict(),
-                'folder_type': 'is-speaker'  # assume is-speaker failures
-            })
+            row['index'] = idx 
+            add_row_to_grouped(grouped, row, folder_type='is-speaker', logger=logger)
+
     elif os.path.isdir(input_path):
-        # Scan the folder for is-speaker / non-speaker
         logger.debug(f"Scanning directory: {input_path}")
         grouped = group_rows_by_folder(input_path, logger)
     else:
@@ -281,7 +310,6 @@ def main(args):
         return
 
     tasks = [(file_path, rows) for file_path, rows in grouped.items()]
-
     if not tasks:
         logger.info("No files to process.")
         return
@@ -298,13 +326,10 @@ def main(args):
     if args.multithread:
         logger.info(f"Processing {len(tasks)} files using {n_workers} workers (multithreaded)...")
         with Pool(n_workers) as pool:
-            results = []
-            for res in tqdm(pool.imap_unordered(process_file_task_star, tasks), total=len(tasks)):
-                results.append(res)
+            results = list(tqdm(pool.imap_unordered(process_file_task_star, tasks), total=len(tasks)))
     else:
         logger.info(f"Processing {len(tasks)} files using a single thread...")
         results = [process_file_task(file_path, rows) for file_path, rows in tqdm(tasks)]
-
 
     for succ_count, fixed_count, fail_count, fail_list in results:
         total_success += succ_count
@@ -312,11 +337,10 @@ def main(args):
         total_failures += fail_count
         all_failures_list.extend([(i, fpath, reason) for (i, fpath, reason) in fail_list])
 
-
     if all_failures_list:
         fail_df = pd.DataFrame(all_failures_list, columns=['row_index', 'file_path', 'reason'])
-        fail_df.to_csv("speaker_mapping_failures.tsv", sep="\t", index=False)
-        logger.warning(f"Written {len(all_failures_list)} failures to speaker_mapping_failures.tsv")
+        fail_df.to_csv("input/matching/speaker-mapping-failures.tsv", sep="\t", index=False)
+        logger.warning(f"Written {len(all_failures_list)} failures to input/matching/speaker_mapping_failures.tsv")
 
     logger.info(f"\nSummary:")
     logger.info(f"Total rows scanned       : {total_rows}")
@@ -329,6 +353,7 @@ def main(args):
 
     if total_failures:
         logger.error("Some rows were not applied correctly or failed.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
