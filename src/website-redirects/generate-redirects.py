@@ -10,13 +10,26 @@ Generate redirects (a) directly from the pdf files (b) a list of pdf files
 from git import Repo
 from glob import glob
 from tqdm import tqdm
+from trainerlog import get_logger
 import argparse, os, shutil
 
 
 
 
+logger = get_logger(name="ebun")
+
+
+
+
 def push_redirects(redirects, redirects_path):
-    print(redirects[:2])
+    """
+    Push redirects
+
+    Args:
+        redirects (list): list of redirects
+        redirects_path (str): path
+    """
+    logger.info(redirects[:2])
     try:
         repo = Repo(redirects_path.replace("docs", ".git"))
         repo.index.add(redirects)
@@ -25,11 +38,19 @@ def push_redirects(redirects, redirects_path):
         origin.push("main")
         return True
     except Exception as e:
-        print(f"Some error: {e}")
+        logger.error(f"Some error: {e}")
         return False
 
 
 def make_redirects(pdf_files, pdf_path, redirects_path):
+    """
+    Make a list of redirects from pdf files.
+
+    Args:
+        pdf_files (list): list of pdf diles
+        pdf_path (str): path to pdf repo
+        redirects_path (str): path to redirects repo
+    """
      redirects = []
      for pdf in tqdm(pdf_files):
          file_ = f"{redirects_path}/docs/{pdf.split('data/')[1][:-4]}.md"
@@ -41,6 +62,13 @@ def make_redirects(pdf_files, pdf_path, redirects_path):
 
 
 def filter_by_year(files, years):
+    """
+    Filter files by years.
+
+    Args:
+        files (list): list of files
+        years (list): list of years
+    """
     filtered = []
     for f in files:
         fy = int(f.split("data/")[1].split('/')[0][:4])
@@ -126,15 +154,15 @@ if __name__ == '__main__':
     parser.add_argument("--no-push", action='store_true')
     args = parser.parse_args()
     if args.from_list is not None and args.generate_list is True:
-        raise ValueError("Set-from list or generage-list, but not both")
+        raise ValueError("Set --from-list or --generate-list, but not both")
     if args.start is not None or args.end is not None:
         try:
             assert args.start is not None
             assert args.end is not None
         except Exception as e:
-            print("both start and end or neither\n{e}\nIf you only need one year, use year")
+            logger.error("both --start and --end or neither\n{e}\nIf you only need one year, use --year")
     if args.clobber_dest and (args.year or args.start):
-        raise ValueError("it's not smart to clobber-dest on a subset of data")
+        raise ValueError("it's not smart to --clobber-dest on a subset of data")
     if args.only_generate_list:
         args.generate_list = True
         args.no_push = True
