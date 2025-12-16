@@ -5,6 +5,7 @@ Handles nested <u> and <seg> elements, propagates 'who' and 'type'.
 Correctly propagates speaker along <u> next/prev chains and following siblings,
 but only annotates <u> and <seg> blocks where who="unknown".
 Counters now correctly sum using multiprocessing.
+NB! Run this from riksdagen-records repo with example command: python ../scripts/src/cur-prot/replace-unknown-speakers-by-goldstandard.py   --folder test/data/speaker-segments   --multithread   --loglevel ERROR
 """
 import argparse
 from multiprocessing import Pool, cpu_count
@@ -163,7 +164,7 @@ def group_rows_by_folder(input_path, logger):
                     logger.error(f"Row {idx} in {csv_path} has no protocol_id, skipping")
                     continue
 
-                xml_path = os.path.join("riksdagen-records", row['protocol_id'])
+                xml_path = row['protocol_id']
                 uuid = row.get('uuid')
                 if not uuid:
                     logger.error(f"Row {idx} in {csv_path} has no UUID, skipping")
@@ -268,7 +269,7 @@ def add_row_to_grouped(groups, row, folder_type, logger=None):
             logger.error(f"Row {idx} has no protocol_id, skipping")
         return False
 
-    xml_path = os.path.join("riksdagen-records", protocol_id)
+    xml_path = row['protocol_id']
     uuid = row.get('uuid')
     if not uuid:
         if logger:
@@ -339,8 +340,8 @@ def main(args):
 
     if all_failures_list:
         fail_df = pd.DataFrame(all_failures_list, columns=['row_index', 'file_path', 'reason'])
-        fail_df.to_csv("input/matching/speaker-mapping-failures.tsv", sep="\t", index=False)
-        logger.warning(f"Written {len(all_failures_list)} failures to input/matching/speaker_mapping_failures.tsv")
+        fail_df.to_csv("../input/matching/speaker-mapping-failures.tsv", sep="\t", index=False)
+        logger.warning(f"Written {len(all_failures_list)} failures to ../input/matching/speaker_mapping_failures.tsv")
 
     logger.info(f"\nSummary:")
     logger.info(f"Total rows scanned       : {total_rows}")
