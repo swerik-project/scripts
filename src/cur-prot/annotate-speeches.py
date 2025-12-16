@@ -22,7 +22,7 @@ import os
 
 
 
-logger = get_logger(name="Trainer Log", level=os.environ.get("LOGLEVEL", None))
+logger = get_logger(name="Annotate Speeches")
 
 
 
@@ -48,44 +48,30 @@ def find_speeches(root, ns):
     if len(speech_elems) > 0:
         speeches = add_to_speeches(speeches, speech_elems)
 
-    try:
-        assert len(list(speeches.keys())) == len(list(set(list(speeches.keys()))))
-    except Exception as e:
-        raise ValueError(f"You probably have a duplicate UUID, {e}")
+    if not len(list(speeches.keys())) == len(list(set(list(speeches.keys()))))
+        raise ValueError(f"You probably have a duplicate UUID,")
     return speeches
 
 
 def add_speeches_to_metadata(speeches, root, ns):
     teiHeader = root.find(f"{ns['tei_ns']}teiHeader")
-    try:
-        assert teiHeader is not None
-    except Exception as e:
-        raise ValueError(f"No TEI header found : {e}")
-    try:
-        constitution = teiHeader.find(f".//{ns['tei_ns']}constitution")
-        assert constitution is not None
-    except Exception as e:
-        try:
-            profileDesc = teiHeader.find(f"{ns['tei_ns']}profileDesc")
-            assert profileDesc is not None
-            logger.debug("profileDesc elem found")
-        except:
+    if teiHeader is None:
+        raise ValueError(f"No TEI header found")
+    constitution = teiHeader.find(f".//{ns['tei_ns']}constitution")
+    if constitution is None:
+        logger.debug("constitution element not found.")
+        profileDesc = teiHeader.find(f"{ns['tei_ns']}profileDesc")
+        if profileDesc is None:
             logger.debug("Creating profileDesc elem")
             profileDesc = etree.SubElement(teiHeader, "profileDesc")
-        try:
-            textDesc = profileDesc.find(f"{ns['tei_ns']}textDesc")
-            assert textDesc is not None
-            logger.debug("textDesc elem found")
-        except:
+        textDesc = profileDesc.find(f"{ns['tei_ns']}textDesc")
+        if textDesc is None:
             logger.debug("Creating textDesc elem")
             textDesc = etree.SubElement(profileDesc, "textDesc")
             channel = etree.SubElement(textDesc, "channel")
             channel.set("mode", "s")
-        try:
-            composition = textDesc.find(f"{ns['tei_ns']}composition")
-            assert composition is not None
-            logger.debug("composition elem found")
-        except:
+        composition = textDesc.find(f"{ns['tei_ns']}composition")
+        if composition is None:
             logger.debug("Creating composition elem")
             composition = etree.SubElement(textDesc, "composition")
 
