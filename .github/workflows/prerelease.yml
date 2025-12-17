@@ -34,6 +34,7 @@ jobs:
         pip install tensorflow
         pip install scikit-learn
         pip install torch
+        pip install trainerlog
         pip install seaborn
         pip install Wikidata
 
