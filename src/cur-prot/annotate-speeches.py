@@ -48,7 +48,7 @@ def find_speeches(root, ns):
     if len(speech_elems) > 0:
         speeches = add_to_speeches(speeches, speech_elems)
 
-    if not len(list(speeches.keys())) == len(list(set(list(speeches.keys()))))
+    if not len(list(speeches.keys())) == len(list(set(list(speeches.keys())))):
         raise ValueError(f"You probably have a duplicate UUID,")
     return speeches
 
