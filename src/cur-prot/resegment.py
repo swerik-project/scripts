@@ -12,14 +12,13 @@ from pyriksdagen.refine import (
 from pyriksdagen.utils import (
     infer_metadata,
     get_data_location,
-    parse_protocol,
     protocol_iterators,
-    write_protocol,
 )
 from pyriksdagen.args import (
     fetch_parser,
     impute_args,
 )
+from pyriksdagen.io import parse_tei, write_tei
 from lxml import etree
 import pandas as pd
 import os, progressbar, argparse
@@ -38,7 +37,7 @@ def main(args):
         protocol_id = protocol.split("/")[-1]
         year = metadata["year"]
 
-        root = parse_protocol(protocol)
+        root, ns = parse_tei(protocol)
 
         years = [
             int(elem.attrib.get("when").split("-")[0])
@@ -56,7 +55,7 @@ def main(args):
         ]
         root = find_introductions(root, pattern_db, intro_ids, minister_db=None, remove_missing=args.remove_negative)
 
-        write_protocol(root, protocol)
+        write_tei(root, protocol)
 
 
 

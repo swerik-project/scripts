@@ -2,7 +2,6 @@
 Find  introductions in the protocols using BERT. Used in tandem with resegment.py
 """
 import pandas as pd
-from lxml import etree
 from transformers import AutoModelForSequenceClassification, BertTokenizerFast
 from pyriksdagen.utils import protocol_iterators, elem_iter, get_data_location, TEI_NS
 import torch
@@ -10,6 +9,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 import argparse
 from pyriksdagen.dataset import IntroDataset
+from pyriksdagen.io import parse_tei
 from functools import partial
 import os
 from pyriksdagen.args import (
@@ -42,8 +42,7 @@ def extract_elem(protocol, elem):
 
 
 def extract_note_seg(protocol, heuristic=False):
-    parser = etree.XMLParser(remove_blank_text=True)
-    root = etree.parse(protocol, parser).getroot()
+    root, ns = parse_tei(protocol)
     data = []
     extract_elem_fun = extract_elem
     if heuristic:
