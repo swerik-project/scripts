@@ -4,6 +4,7 @@ Add a randomly generated UUID to all elements in the XML ID attribute that are c
 Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
 """
 from collections import Counter
+import multiprocessing
 from pyriksdagen.args import (
     fetch_parser,
     impute_args,
@@ -20,8 +21,10 @@ from pyriksdagen.utils import (
         TEI_NS,
         XML_NS
 )
+from trainerlog import get_logger
 from tqdm import tqdm
-import multiprocessing
+
+logger = get_logger(name="trainlog.add_protocol_id", level="DEBUG")
 
 def add_protocol_id(protocol):
     ids = set()
@@ -88,13 +91,20 @@ def add_protocol_id(protocol):
 
 def main(args):
     protocols = args.records
+
+    logger.train(f"Starting ID imputation for {len(protocols)} protocols")
+
     num_ids = 0
     ids = []
-
     all_seed_maps = {}
+
     with multiprocessing.Pool() as pool:
-        for i, n, smap in tqdm(pool.imap(add_protocol_id, protocols), total=len(protocols)):
-            ids += i
+        for i, n, smap in tqdm(
+            pool.imap(add_protocol_id, protocols),
+            total=len(protocols),
+            desc="Processing protocols",
+        ):
+            ids.extend(i)
             num_ids += n
             all_seed_maps.update(smap)
 
@@ -102,15 +112,25 @@ def main(args):
     duplicates = {id_val: count for id_val, count in c.items() if count > 1}
 
     if duplicates:
-        print("Some duplicate IDs found:")
+        logger.warning("Duplicate xml:id values detected")
         for id_val, count in list(duplicates.items())[:10]:
-            print(f"{id_val} (used {count} times), seed: {all_seed_maps.get(id_val, 'N/A')}")
+            logger.warning(
+                f"{id_val} (used {count} times), seed: "
+                f"{all_seed_maps.get(id_val, 'N/A')}"
+            )
+    else:
+        logger.info("No duplicate xml:id values found")
 
-    print(f"Total IDs generated: {num_ids}")
-    print(f"Unique IDs: {len(set(ids))}")
-    print(f"Duplicate IDs: {len(duplicates)}")
+    logger.info(f"Total IDs generated: {num_ids}")
+    logger.info(f"Unique IDs: {len(set(ids))}")
+    logger.info(f"Duplicate IDs: {len(duplicates)}")
 
-    assert len(set(ids)) == num_ids, "There are duplicate IDs!"
+    if len(set(ids)) != num_ids:
+        logger.critical("Duplicate IDs detected — aborting")
+        raise AssertionError("There are duplicate IDs!")
+
+    logger.train("ID imputation completed successfully")
+
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
