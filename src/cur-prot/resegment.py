@@ -2,29 +2,23 @@
 Find introductions in the protocols. After finding an intro,
 tag the next paragraph as an utterance.
 """
-from pyparlaclarin.refine import format_texts
-from pyriksdagen.db import load_patterns
-from pyriksdagen.refine import (
-    detect_mps,
-    find_introductions,
-    update_ids,
-)
-from pyriksdagen.utils import (
-    infer_metadata,
-    get_data_location,
-    protocol_iterators,
-)
+import pandas as pd
+import progressbar
 from pyriksdagen.args import (
     fetch_parser,
     impute_args,
 )
-from pyriksdagen.io import parse_tei, write_tei
-from lxml import etree
-import pandas as pd
-import os, progressbar, argparse
-
-
-
+from pyriksdagen.db import load_patterns
+from pyriksdagen.io import (
+    parse_tei,
+    write_tei
+)
+from pyriksdagen.refine import (
+    find_introductions,
+)
+from pyriksdagen.utils import (
+    infer_metadata,
+)
 
 def main(args):
     protocols = args.records
