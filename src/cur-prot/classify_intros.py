@@ -1,21 +1,27 @@
 """
 Find  introductions in the protocols using BERT. Used in tandem with resegment.py
 """
-import pandas as pd
-from transformers import AutoModelForSequenceClassification, BertTokenizerFast
-from pyriksdagen.utils import protocol_iterators, elem_iter, get_data_location, TEI_NS
-import torch
-from tqdm import tqdm
-from torch.utils.data import DataLoader
-import argparse
-from pyriksdagen.dataset import IntroDataset
-from pyriksdagen.io import parse_tei
+
 from functools import partial
 import os
 from pyriksdagen.args import (
     fetch_parser,
     impute_args,
 )
+import pandas as pd
+from pyriksdagen.dataset import IntroDataset
+from pyriksdagen.io import parse_tei
+from pyriksdagen.utils import (
+    elem_iter,
+    TEI_NS
+)
+from trainerlog import get_logger
+from transformers import AutoModelForSequenceClassification
+import torch
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+logger = get_logger(name="trainlog.predict_intro", level="DEBUG")
 
 def extract_elem_jointly(protocol, elem):
     text = elem.text.split()
@@ -28,7 +34,7 @@ def extract_elem_jointly(protocol, elem):
         if next_elem.tag == f"{TEI_NS}u":
             next_elem = next_elem[0]
             if next_elem.text is not None:
-                print(f"concat intro ({text}) with next seg")
+                logger.debug(f"concat intro ({text}) with next seg")
                 u_text = " ".join(next_elem.text.split())
                 #if "." in u_text:
                 #    u_text = u_text.split(".")[0] + "."
@@ -95,14 +101,14 @@ def main(args):
         for file in tqdm(files, total=len(files)):
             data.extend(extract_note_seg(os.path.join(folder, file), heuristic=args.join_heuristic))
         df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
-        print(df)
+        logger.debug(df)
         N = len(df)
         null_data = df[df.isnull().any(axis=1)]
         df = df.dropna()
         N_prime = len(df)
         if N != N_prime:
-            print(f"{N - N_prime} null rows were omitted.")
-            print(null_data)
+            logger.warning(f"{N - N_prime} null rows were omitted.")
+            logger.debug(null_data)
         df = predict_intro(df, cuda=args.cuda)
         intros.append(df)
 
