@@ -43,8 +43,8 @@ def populate_protocol(jsonpath, rawpath):
                 pdf_url = fil_url.text
 
     gathering_year = d["dokument"]["rm"].replace("/", "")
-    protocol_number = d["dokument"]["nummer"]
-    protocol_id = f"prot-{gathering_year}--{protocol_number}"
+    protocol_number = int(d["dokument"]["nummer"])
+    protocol_id = f"prot-{gathering_year}--{protocol_number:03d}"
     riksdagen_protocol_id = d["dokument"]["dok_id"]
     xmlpath = f"corpus/protocols/{gathering_year}/{protocol_id}.xml"
     if not Path(xmlpath).exists():
