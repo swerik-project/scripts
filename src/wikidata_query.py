@@ -17,7 +17,7 @@ import numpy as np
 import os
 import pandas as pd
 import re, time
-
+from string import digits
 
 
 
@@ -100,6 +100,26 @@ def main(args):
 
         if q == "external_identifiers":
             df = elongate_external_ids(df)
+
+        if 'riksmote' in df.columns:
+            # Remove redundant information
+            df["riksmote"] = [s.replace("Riksmötet ", "") for s in df["riksmote"]]
+            df["riksmote"] = [s.replace("riksmötet ", "") for s in df["riksmote"]]
+            df["riksmote"] = [s.replace("/20", "") for s in df["riksmote"]]
+            df["riksmote"] = [s.replace("/19", "") for s in df["riksmote"]]
+
+            # Separate meeting, e.g. "202223" from the optional specifier eg. "urtima"
+            meetings = [''.join([char for char in s if char.isdigit()]) for s in df["riksmote"]]
+            specifiers = [''.join([char for char in s if not char.isdigit()]).strip().lower() for s in df["riksmote"]]
+
+            df["parliament_year"] = meetings
+            df["specifier"] = specifiers
+
+            # Convert column name to conform to standard
+            df = df.rename(columns={"riksmote_id": "wiki_id"})
+
+            # Drop unnecessary columns
+            df = df[["parliament_year", "specifier", "start", "end", "wiki_id"]]
 
         # Store files needing additional preprocessing in input
         folder = metadata_folder if not q in input_folders else args.input_metadata_folder
