@@ -42,21 +42,31 @@ def add_protocol_id(protocol):
     num_ids = 0
     for tag, elem in elem_iter(root):
         if tag == "u":
+            # First, assign IDs to children
             for subelem in elem:
-                x = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
-                subelem.attrib[f'{XML_NS}id'] = x
-                ids.add(x)
+                x_child = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+                subelem.attrib[f'{XML_NS}id'] = x_child
+                ids.add(x_child)
                 num_ids += 1
+            
+            # Then assign ID to the <u> itself based on children
+            if len(elem):
+                child_ids = [child.attrib[f'{XML_NS}id'] for child in elem if f'{XML_NS}id' in child.attrib]
+                seed_str = "\n".join(child_ids)
+                x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid(seed_str))
+            else:
+                x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
+            ids.add(x)
+            num_ids += 1
+
+        elif tag == "note":
+            # <note> is non-composite → assign a normal UUID
             x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
             elem.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
-                
-        elif tag in ["note"]:
-            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
-            elem.attrib[f'{XML_NS}id'] = x
-            ids.add(x)
-            num_ids += 1
+
 
     # Add IDs for divs
     for body in root.findall(f".//{TEI_NS}body"):
