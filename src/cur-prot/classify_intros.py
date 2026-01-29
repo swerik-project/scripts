@@ -101,7 +101,7 @@ def main(args):
         for file in tqdm(files, total=len(files)):
             data.extend(extract_note_seg(os.path.join(folder, file), heuristic=args.join_heuristic))
         df = pd.DataFrame(data, columns=['text', 'id', 'file_path'])
-        logger.debug(df)
+        logger.debug(f"{df}")
         N = len(df)
         null_data = df[df.isnull().any(axis=1)]
         df = df.dropna()
