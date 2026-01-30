@@ -3,20 +3,31 @@ Add a randomly generated UUID to all elements in the XML ID attribute that are c
 
 Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
 """
-from lxml import etree
-import argparse
-from pyriksdagen.utils import elem_iter, protocol_iterators, get_formatted_uuid
-from pyriksdagen.utils import TEI_NS, XML_NS
-from tqdm import tqdm
 import multiprocessing
+from pyriksdagen.utils import (
+    get_formatted_uuid,
+    elem_iter
+)
+from pyriksdagen.utils import (
+    TEI_NS,
+    XML_NS
+)
+from pyriksdagen.io import (
+    parse_tei,
+    write_tei
+)
 from pyriksdagen.args import (
     fetch_parser,
     impute_args,
 )
+from trainerlog import get_logger
+from tqdm import tqdm
+
+logger = get_logger(name="trainlog.add_uuid", level="INFO")
 
 def add_protocol_id(protocol):
     ids = set()
-    root, _ = parse_protocol(protocol, get_ns=True)
+    root, _ = parse_tei(protocol, get_ns=True)
     
     # Accomodate both TEI and teiCorpus root
     tei = root.find(f"{TEI_NS}TEI")
@@ -31,21 +42,31 @@ def add_protocol_id(protocol):
     num_ids = 0
     for tag, elem in elem_iter(root):
         if tag == "u":
+            # First, assign IDs to children
             for subelem in elem:
-                x = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
-                subelem.attrib[f'{XML_NS}id'] = x
-                ids.add(x)
+                x_child = subelem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+                subelem.attrib[f'{XML_NS}id'] = x_child
+                ids.add(x_child)
                 num_ids += 1
+            
+            # Then assign ID to the <u> itself based on children
+            if len(elem):
+                child_ids = [child.attrib[f'{XML_NS}id'] for child in elem if f'{XML_NS}id' in child.attrib]
+                seed_str = "\n".join(child_ids)
+                x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid(seed_str))
+            else:
+                x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
+            elem.attrib[f'{XML_NS}id'] = x
+            ids.add(x)
+            num_ids += 1
+
+        elif tag == "note":
+            # <note> is non-composite → assign a normal UUID
             x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
             elem.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
-                
-        elif tag in ["note"]:
-            x = elem.attrib.get(f'{XML_NS}id', get_formatted_uuid())
-            elem.attrib[f'{XML_NS}id'] = x
-            ids.add(x)
-            num_ids += 1
+
 
     # Add IDs for divs
     for body in root.findall(f".//{TEI_NS}body"):
@@ -56,13 +77,14 @@ def add_protocol_id(protocol):
             seed_str =  f"div\n{elem_id_list}"
             new_div_id = get_formatted_uuid(seed_str)
             if f'{XML_NS}id' not in div.attrib:
-                print(seed_str, new_div_id)
+                # print(seed_str, new_div_id)
+                logger.debug("Generated div ID: %s -> %s", seed_str, new_div_id)
             x = div.get(f'{XML_NS}id', new_div_id)
             div.attrib[f'{XML_NS}id'] = x
             ids.add(x)
             num_ids += 1
 
-    write_protocol(root, protocol)
+    write_tei(root, protocol)
 
     assert len(ids) == num_ids
     return ids, num_ids
