@@ -20,11 +20,16 @@ def main(args):
     # loading pre-trained bert-model used in position model with tokenizer  
     tokenizer = AutoTokenizer.from_pretrained('fberi/BertModel-lc')
 
+    if args.cuda:
+        device = 'cuda'
+    else:
+        device = 'cpu' 
+
     # Initialize model pipeline
     context_pipe = pipeline(task = 'text-classification', 
                              model = 'fberi/BertModel-lc', 
                              tokenizer = tokenizer, 
-                             device = 'cuda', 
+                             device = device, 
                              trust_remote_code = True,
                              max_length = 128, truncation = True, padding = 'max_length', 
                              batch_size = 128) 
