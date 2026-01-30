@@ -42,7 +42,7 @@ def main(args):
         last_catalog_list = None
     ids_need_attention = []
     last_pulled_ids = pd.read_csv(f"{args.metadata_folder}/wiki_id.csv")
-    this_catalog_list = last_pulled_ids["swerik_id"].unique()
+    this_catalog_list = last_pulled_ids["person_id"].unique()
     if last_catalog_list:
         [ids_need_attention.append(_) for _ in last_catalog_list if _ not in this_catalog_list]
     if len(ids_need_attention) > 0:
@@ -61,10 +61,10 @@ def main(args):
     issue_counter = 0
     for swerik_id in tqdm(this_catalog_list, total=len(this_catalog_list)):
         #print(">>>---", swerik_id)
-        filtered_Corpus = corpus_metadata.loc[corpus_metadata["swerik_id"] == swerik_id].copy()
+        filtered_Corpus = corpus_metadata.loc[corpus_metadata["person_id"] == swerik_id].copy()
         peripheral_metadata = {}
         for key, df in additional_metadata.items():
-            df = df.loc[df["swerik_id"] == swerik_id]
+            df = df.loc[df["person_id"] == swerik_id]
             df = df.fillna(np.nan).replace([np.nan], [None])
             df.reset_index(inplace=True)
             peripheral_metadata[key] = df.copy()
@@ -84,10 +84,10 @@ def main(args):
 
     idname = []
     primary_names = corpus_metadata.loc[corpus_metadata["primary_name"]==True]
-    primary_names.drop_duplicates(["swerik_id", "name", "born"], inplace=True)
+    primary_names.drop_duplicates(["person_id", "name", "born"], inplace=True)
     primary_names.sort_values(by='name', key=lambda x: x.str.split('\s+').str[-1], inplace=True)
     for i, r in primary_names.iterrows():
-        idname.append({"swerik_id": r["swerik_id"], "name": r["name"], "born": r["born"]})
+        idname.append({"person_id": r["person_id"], "name": r["name"], "born": r["born"]})
     names_list = {
         "version": args.version,
         "last-updated": now,
@@ -110,11 +110,11 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--metadata_folder", type=str, default="corpus/metadata")
-    parser.add_argument("--input_metadata_folder", type=str, default="input/metadata")
+    parser.add_argument("--metadata_folder", type=str, default="./riksdagen-persons/data")
+    parser.add_argument("--input_metadata_folder", type=str, default="./input/metadata")
     parser.add_argument("-w", "--website_root",
                         type=str,
-                        default="../swerik-project.github.io/",
+                        default="./swerik-project.github.io/",
                         help="Root path to the website's local files")
     parser.add_argument("-v", "--version",
                         type=str,

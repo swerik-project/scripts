@@ -25,8 +25,11 @@ def fetch_local_package(pgk_path, package):
     return filenames, files()
 
 def main(args):
-    if args.local_alto is not None:
-        package_ids = args.local_alto
+    if args.alto_path is not None:
+        if args.local_alto is not None:
+            package_ids = args.local_alto
+        else:
+            package_ids = os.listdir(args.alto_path)
         archive = None
     else:
         if args.protocol_ids is not None:
@@ -38,7 +41,7 @@ def main(args):
         archive = LazyArchive()
     for package_id in progressbar.progressbar(list(package_ids)):
         data = infer_metadata(package_id)
-        print("metadata", data)
+        print("\n", package_id, "\n metadata", data)
         data["authority"] = args.authority
         data["session"] = data["sitting"]
         data["protocol_id"] = data["protocol"]
@@ -52,7 +55,6 @@ def main(args):
         else:
             filenames, files = fetch_local_package(args.alto_path, package_id)
             paragraphs = convert_alto(filenames, files)
-        print()
         print(paragraphs[0])
         data["paragraphs"] = paragraphs
 

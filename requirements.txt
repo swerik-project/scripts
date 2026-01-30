@@ -21,3 +21,4 @@ tqdm
 transformers
 Unidecode
 Wikidata
+pytest-cfg-fetcher

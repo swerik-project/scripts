@@ -9,11 +9,14 @@ from pyriksdagen.utils import elem_iter, protocol_iterators, get_formatted_uuid
 from pyriksdagen.utils import TEI_NS, XML_NS
 from tqdm import tqdm
 import multiprocessing
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
 
 def add_protocol_id(protocol):
     ids = set()
-    parser = etree.XMLParser(remove_blank_text=True)
-    root = etree.parse(protocol, parser).getroot()
+    root, _ = parse_protocol(protocol, get_ns=True)
     
     # Accomodate both TEI and teiCorpus root
     tei = root.find(f"{TEI_NS}TEI")
@@ -44,6 +47,7 @@ def add_protocol_id(protocol):
             ids.add(x)
             num_ids += 1
 
+    # Add IDs for divs
     for body in root.findall(f".//{TEI_NS}body"):
         for div in body:
             elem_id_list = [elem.attrib.get(f'{XML_NS}id') for elem in div]
@@ -58,18 +62,14 @@ def add_protocol_id(protocol):
             ids.add(x)
             num_ids += 1
 
-    b = etree.tostring(
-        root, pretty_print=True, encoding="utf-8", xml_declaration=True
-    )
-    f = open(protocol, "wb")
-    f.write(b)
+    write_protocol(root, protocol)
 
     assert len(ids) == num_ids
     return ids, num_ids
 
 
 def main(args):
-    protocols = sorted(list(protocol_iterators(args.records_folder, start=args.start, end=args.end)))
+    protocols = args.records
     num_ids = 0
     ids = []
     with multiprocessing.Pool() as pool:
@@ -81,9 +81,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--records_folder", type=str, default="corpus/records")
-    parser.add_argument("-s", "--start", type=int, default=None, help="Start year")
-    parser.add_argument("-e", "--end", type=int, default=None, help="End year")
-    args = parser.parse_args()
+    parser = fetch_parser("records")
+    args = impute_args(parser.parse_args())
     main(args)

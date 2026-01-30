@@ -15,7 +15,6 @@ query = {
 #                                #   rather protocols are filtered by existence of 'prot-' in filename,
 #                                #   see query_archive().
 		}
-a = LazyArchive()
 
 
 
@@ -57,7 +56,7 @@ def packages_to_input_csv(package_ids):
 
 
 
-def main(args):
+def main(args, a):
 
     query_dates = None
 
@@ -74,6 +73,7 @@ def main(args):
 
 
 if __name__ == '__main__':
+    a = LazyArchive()
     parser = argparse.ArgumentParser(description=__doc__, epilog="You need to specify a year list or a year range with -s and -e.")
     parser.add_argument("-i", "--scanned", action='store_true', help="set this flag for scanned protocols")
     parser.add_argument("-d", "--digital_originals", action="store_true", help="set this flag for born digital protocols")
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--mkdirs", action='store_true', help="Makes a <year> directory for each year arg in corpus/protocols/")
     args = parser.parse_args()
     if (args.year or (args.start and args.end)) and (args.scanned != args.digital_originals):
-        main(args)
+        main(args, a)
     else:
         print("\n\nOh No!\n\nSomething is wrong with your arguments. Get it together and try again.\n\n")
         if not (args.year or (args.start and args.end)):
