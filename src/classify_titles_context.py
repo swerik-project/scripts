@@ -1,5 +1,7 @@
 """
-Find title sequences in protocols using BERT models
+Find titles in protocols using a BERT model
+
+Uses a Huggingface model that is automatically downloaded from the website
 """
 # transformers
 from transformers import AutoTokenizer, pipeline

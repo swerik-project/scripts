@@ -1,3 +1,9 @@
+"""
+Classify paragraphs into notes and utterances.
+
+Uses a Huggingface compatible BERT model.
+Download from releases in: https://github.com/swerik-project/bert-riksdagen-classifier/
+"""
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 from pyriksdagen.utils import protocol_iterators

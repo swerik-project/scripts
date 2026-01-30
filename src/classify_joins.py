@@ -1,5 +1,8 @@
 """
 Find sequences to join in protocols using BERT models
+
+This procedure is meant to correct OCR errors. Do not run
+on the borne-digital data.
 """
 # transformers
 from transformers import pipeline
