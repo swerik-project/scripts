@@ -43,7 +43,21 @@ def track_missing_id(df, l, id_map=None):
     return df.reset_index(drop=True), l
 
 
+def postprocess_riksmote(df, metadata_folder):
+    # Only EK is scraped, hard-code the value
+    df["chamber"] = "ek"
 
+    # Take everything up to 1990 from the manually annotated file
+    riksdagen_year = pd.read_csv(f'{metadata_folder}/riksdag-year.csv')
+    riksdagen_year = riksdagen_year[riksdagen_year['start'] < "1990-12-31"]
+
+    # Drop everything before 1990 from the scraped df
+    df = df[df['start'] >= "1990-12-31"]
+    
+    # Make sure the columns match
+    df = df[riksdagen_year.columns]
+    joint_df = pd.concat([riksdagen_year, df]).reset_index(drop=True)
+    return joint_df
 
 def main(args):
     if args.metadata_folder is None:
@@ -120,6 +134,8 @@ def main(args):
 
             # Drop unnecessary columns
             df = df[["parliament_year", "specifier", "start", "end", "wiki_id"]]
+
+            df = postprocess_riksmote(df, metadata_folder)
 
         # Store files needing additional preprocessing in input
         folder = metadata_folder if not q in input_folders else args.input_metadata_folder
