@@ -17,8 +17,6 @@ import numpy as np
 import os
 import pandas as pd
 import re, time
-from string import digits
-
 
 
 def track_missing_id(df, l, id_map=None):
