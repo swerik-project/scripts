@@ -10,8 +10,8 @@ from pathlib import Path
 
 def main(args):
 
-    if not Path(outfolder).exists():
-        raise ValueError(f"output folder ({outfolder}) does not exist. Exiting...")
+    if not Path(args.outfolder).exists():
+        raise ValueError(f"output folder ({args.outfolder}) does not exist. Exiting...")
 
     corpus = load_Corpus_metadata()
 
