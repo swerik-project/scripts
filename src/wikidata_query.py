@@ -17,7 +17,7 @@ import numpy as np
 import os
 import pandas as pd
 import re, time
-
+import warnings
 
 def track_missing_id(df, l, id_map=None):
     no_id = df.loc[pd.isna(df["person_id"])]
@@ -112,6 +112,13 @@ def main(args):
 
         if q == "external_identifiers":
             df = elongate_external_ids(df)
+
+        if q == "government":
+            hardcoded_object_len = len(df[df["government"] == "Sveriges regering"])
+            if hardcoded_object_len == 0:
+                warnings.warning("Hard coded value 'Sveriges regering' not found in the query results")
+
+            df = df[df["government"] != "Sveriges regering"]
 
         if 'riksmote' in df.columns:
             # Remove redundant information
