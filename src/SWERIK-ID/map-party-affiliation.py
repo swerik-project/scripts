@@ -4,14 +4,18 @@ Add a swerik party ID to the party_affiliation.csv file.
 """
 from tqdm import tqdm
 import pandas as pd
+from pyriksdagen.utils import get_data_location
+import argparse
 
 
 
-
-
-def main():
-    party_map = pd.read_csv("riksdagen-persons/data/party.csv")
-    affiliation = pd.read_csv("riksdagen-persons/data/party_affiliation.csv")
+def main(args):
+    if args.metadata_folder is None:
+        metadata_folder = get_data_location("metadata")
+    else:
+        metadata_folder = args.metadata_folder
+    party_map = pd.read_csv(f"{metadata_folder}/party.csv")
+    affiliation = pd.read_csv(f"{metadata_folder}/party_affiliation.csv")
     affiliation["swerik_party_id"] = None
     affiliation["hist_acc"] = None # historical accuracy
 
@@ -62,12 +66,18 @@ def main():
     print(len(affiliation.loc[pd.notnull(affiliation["swerik_party_id"])]))
     print(len(affiliation.loc[pd.notnull(affiliation["hist_acc"])]), len(affiliation.loc[affiliation['hist_acc'] == True]))
     print(affiliation.loc[(affiliation['hist_acc'] == False)|(pd.isna(affiliation['hist_acc']))])
-    affiliation.loc[(affiliation['hist_acc'] == False)|(pd.isna(affiliation['hist_acc']))].to_csv("riksdagen-persons/test/result/party-problems.csv", index=False)
+
+    # TODO: mkdir etc. for this to work
+    #affiliation.loc[(affiliation['hist_acc'] == False)|(pd.isna(affiliation['hist_acc']))].to_csv(f"{metadata_folder}/test/result/party-problems.csv", index=False)
+    
     print(onetoone, onetomany)
     print(len(affiliation.loc[pd.isnull(affiliation['start'])]))
 
     affiliation.drop(columns=['hist_acc'], inplace=True)
-    affiliation.to_csv("riksdagen-persons/data/party_affiliation.csv", index=False)
+    affiliation.to_csv(f"{metadata_folder}/party_affiliation.csv", index=False)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--metadata_folder', type=str, default=None)
+    args = parser.parse_args()
+    main(args)
