@@ -133,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
     parser.add_argument("-e", "--end", type=int, default=2022, help="End year")
     parser.add_argument("--flatten", type=bool, default=False, help="Flatten output to only contain pages instead of elements")
+    parser.add_argument("--output_file", type=str, default=None, help="Write output here, to a single CSV file, intead of one per decade")
     args = parser.parse_args()
 
     digest = hashlib.md5(args.seed.encode("utf-8")).digest()
@@ -142,6 +143,7 @@ if __name__ == "__main__":
     protocol_df = get_page_counts(path)
     print(protocol_df)
 
+    all_samples = []
     for decade in range(args.start // 10 * 10, args.end, 10):
         print("Decade:", decade)
         sample = sample_page_counts(protocol_df, decade, decade + 9, n=args.pages_per_decade, seed=digest)
@@ -163,9 +165,16 @@ if __name__ == "__main__":
         if args.flatten:
             sample = flatten(sample)
 
-        sample.to_csv(f"{args.qc_folder}/sample_{decade}.csv", index=False)
+        if args.output_file is None:
+            sample.to_csv(f"{args.qc_folder}/sample_{decade}.csv", index=False)
+    
+            protocols_unique = list(sample.protocol_id.unique())
+            with open(f"{args.qc_folder}/sample_{decade}.txt", "w+") as outf:
+                for up in protocols_unique:
+                    outf.write(f"{args.records_folder}/{up.split('-')[1]}/{up}.xml\n")
+        else:
+            all_samples.append(sample)
 
-        protocols_unique = list(sample.protocol_id.unique())
-        with open(f"{args.qc_folder}/sample_{decade}.txt", "w+") as outf:
-            for up in protocols_unique:
-                outf.write(f"{args.records_folder}/{up.split('-')[1]}/{up}.xml\n")
+    if args.output_file is not None:
+        sample = pd.concat(all_samples)
+        sample.to_csv(args.output_file)
