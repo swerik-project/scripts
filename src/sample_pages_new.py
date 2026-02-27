@@ -5,9 +5,9 @@ TODO: Does not take into account that multiple pages from same protocol can be s
 import numpy as np
 import pandas as pd
 from lxml import etree
-import argparse, progressbar, hashlib
+import argparse, tqdm, hashlib
 
-from pyriksdagen.utils import infer_metadata, protocol_iterators
+from pyriksdagen.utils import infer_metadata, corpus_iterator
 
 tei_ns = "{http://www.tei-c.org/ns/1.0}"
 xml_ns = "{http://www.w3.org/XML/1998/namespace}"
@@ -15,13 +15,14 @@ xml_ns = "{http://www.w3.org/XML/1998/namespace}"
 def get_date(root):
     for docDate in root.findall(f".//{tei_ns}docDate"):
         date_string = docDate.text
+        date_string = " ".join(date_string.split()).strip()
         break
     return date_string
 
 def get_page_counts(corpus_path="corpus/protocols/"):
     parser = etree.XMLParser(remove_blank_text=True)
     rows = []
-    for protocol_path in progressbar.progressbar(list(protocol_iterators(corpus_path, start=args.start, end=args.end))):
+    for protocol_path in tqdm.tqdm(list(corpus_iterator("prot", corpus_root=corpus_path, start=args.start, end=args.end))):
         root = etree.parse(protocol_path, parser)
         pbs = root.findall(f".//{tei_ns}pb")
         year = get_date(root)[:4]
@@ -32,11 +33,15 @@ def get_page_counts(corpus_path="corpus/protocols/"):
     return df
 
 def get_pagenumber(link):
-    link = link.replace(".jp2/_view", "")
-    link = link.split("-")[-1]
-    link = link.split("page=")[-1]
-    if link.isnumeric():
-        return int(link)
+    if ".jp2" in link:
+        link = link.replace(".jp2/_view", "")
+        link = link.split("-")[-1]
+        link = link.split("page=")[-1]
+        if link.isnumeric():
+            return int(link)
+    else:
+        raise UserError
+
 
 def sample_page_counts(df, start, end, n, seed=None):
     df = df[df["year"] >= start]
