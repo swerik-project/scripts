@@ -32,17 +32,6 @@ def get_page_counts(corpus_path="corpus/protocols/"):
     df = pd.DataFrame(rows, columns=["protocol_path", "protocol_id", "year", "pages"])
     return df
 
-def get_pagenumber(link):
-    if ".jp2" in link:
-        link = link.replace(".jp2/_view", "")
-        link = link.split("-")[-1]
-        link = link.split("page=")[-1]
-        if link.isnumeric():
-            return int(link)
-    else:
-        raise UserError
-
-
 def sample_page_counts(df, start, end, n, seed=None):
     df = df[df["year"] >= start]
     df = df[df["year"] <= end].copy()
