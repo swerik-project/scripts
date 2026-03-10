@@ -5,7 +5,7 @@ from lxml import etree
 import argparse
 from pyriksdagen.utils import corpus_iterator
 from tqdm import tqdm
-from pyriksdagen.utils import TEI_NS
+from pyriksdagen.utils import TEI_NS, XML_NS
 from pyriksdagen.io import (
     parse_tei,
     write_tei
@@ -39,12 +39,30 @@ def remove_dead_nextprev_links(root):
                         del elem.attrib["prev"]
     return root
 
+def add_new_nextprev(root):
+    for body in root.findall(f".//{TEI_NS}body"):
+        for div in body.findall(f".//{TEI_NS}div"):
+            previous_u = None
+            for elem in div:
+                if elem.tag.split("}")[-1] == "u":
+                    if previous_u is None:
+                        previous_u = elem
+                    else:
+                        previous_u.attrib["next"] = elem.attrib[f"{XML_NS}id"]
+                        elem.attrib["prev"] = previous_u.attrib[f"{XML_NS}id"]
+
+                elif elem.tag.split("}")[-1] == "note":
+                    if elem.attrib.get("type") == "speaker":
+                        previous_u = None
+    return root
+
 def main(args):
     protocols = sorted(list(corpus_iterator("prot", args.records_folder, start=args.start, end=args.end)))
     for p in tqdm(protocols):
         root, ns = parse_tei(p)
         root = merge_us(root)
         root = remove_dead_nextprev_links(root)
+        root = add_new_nextprev(root)
         write_tei(root, p)
 
 
