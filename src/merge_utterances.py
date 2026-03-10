@@ -41,7 +41,6 @@ def remove_dead_nextprev_links(root):
 
 def main(args):
     protocols = sorted(list(corpus_iterator("prot", args.records_folder, start=args.start, end=args.end)))
-    parser = etree.XMLParser(remove_blank_text=True)
     for p in tqdm(protocols):
         root, ns = parse_tei(p)
         root = merge_us(root)
