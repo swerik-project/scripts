@@ -5,9 +5,11 @@ TODO: Does not take into account that multiple pages from same protocol can be s
 import numpy as np
 import pandas as pd
 from lxml import etree
-import argparse, tqdm, hashlib
+import argparse
+import tqdm
+import hashlib
 
-from pyriksdagen.utils import infer_metadata, corpus_iterator
+from pyriksdagen.utils import corpus_iterator
 
 tei_ns = "{http://www.tei-c.org/ns/1.0}"
 xml_ns = "{http://www.w3.org/XML/1998/namespace}"
