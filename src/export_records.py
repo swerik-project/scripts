@@ -6,7 +6,8 @@ Also adds the document ID (eg. prot-year--number) in the TEI element as an XML I
 import multiprocessing
 from pyriksdagen.utils import (
     get_formatted_uuid,
-    elem_iter
+    elem_iter,
+    infer_metadata
 )
 from pyriksdagen.utils import (
     TEI_NS,
@@ -23,16 +24,33 @@ from pyriksdagen.args import (
 from trainerlog import get_logger
 from tqdm import tqdm
 import polars as pl
+from pathlib import Path
 
 LOGGER = get_logger(name="export-records")
 
 def scrape_record(record):
     root, _ = parse_tei(record, get_ns=True)
-    
+    # Get protocol metadata
+    record_id = root.attrib[f"{XML_NS}id"]
+    metadata = infer_metadata(record_id)
+    metadata["record"] = record_id
+
+    for front in root.findall(f".//{TEI_NS}front"):
+        for docDate in front.findall(f".//{TEI_NS}docDate"):
+            date = docDate.attrib["when"]
+            if metadata.get("start_date") is None:
+                metadata["start_date"] = date
+                metadata["end_date"] = date
+
+            if metadata.get("start_date") > date:
+                metadata["start_date"] = date
+            if metadata.get("end_date") < date:
+                metadata["end_date"] = date
+
+
+    # Get speeches
     speeches = {}
     all_u_ids = set()
-    # Add IDs for divs
-    record_id = root.attrib[f"{XML_NS}id"]
     for textDesc in root.findall(f".//{TEI_NS}textDesc"):
         for constitution in textDesc.findall(f".//{TEI_NS}constitution"):
             speech_index = 0
@@ -51,7 +69,7 @@ def scrape_record(record):
                 speech_index += 1
 
     if len(speeches) == 0:
-        return None
+        return None, metadata
 
     for u in root.findall(f".//{TEI_NS}u"):
         u_id = u.attrib[f"{XML_NS}id"]
@@ -84,14 +102,16 @@ def scrape_record(record):
 
     df = pl.DataFrame(speech_list)
     df = df.select("speech", "record", "ix", "who", "text")
-    return df
+    return df, metadata
 
 
 def main(args):
     protocols = args.records
     all_dfs = []
+    record_metadata = []
     for record in tqdm(args.records):
-        df = scrape_record(record)
+        df, metadata = scrape_record(record)
+        record_metadata.append(metadata)
         if df is None:
             LOGGER.error(f"No speeches in {record}")
         else:
@@ -102,12 +122,30 @@ def main(args):
     df = df.select("speech", "record", "who", "text")
     print(df)
 
-    df.write_database(
-        table_name="records_speeches",
-        connection="sqlite:///records_speeches.sqlite",
-    )
+    metadata_df = pl.DataFrame(record_metadata)
+    metadata_df = metadata_df.select("record", "sitting", "chamber", "number", "start_date", "end_date")
+    metadata_df = metadata_df.sort("sitting", "chamber", "number")
+    print(metadata_df.columns)
+
+    if "sqlite" in args.formats:
+        LOGGER.train("Export to sqlite")
+        if Path("records.sqlite").exists():
+            Path("records.sqlite").unlink()
+        df.write_database(
+            table_name="speeches",
+            connection="sqlite:///records.sqlite",
+        )
+        metadata_df.write_database(
+            table_name="records",
+            connection="sqlite:///records.sqlite",
+        )
+
+    if "ndjson" in args.formats:
+        LOGGER.train("Export to ndjson")
+        df.write_ndjson("records_speeches.ndjson")
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
+    parser.add_argument("--formats", type=str, default=["sqlite", "ndjson"])
     args = impute_args(parser.parse_args())
     main(args)
