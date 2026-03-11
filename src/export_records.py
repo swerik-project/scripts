@@ -1,0 +1,113 @@
+"""
+Add a randomly generated UUID to all elements in the XML ID attribute that are currently missing one.
+
+Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
+"""
+import multiprocessing
+from pyriksdagen.utils import (
+    get_formatted_uuid,
+    elem_iter
+)
+from pyriksdagen.utils import (
+    TEI_NS,
+    XML_NS
+)
+from pyriksdagen.io import (
+    parse_tei,
+    write_tei
+)
+from pyriksdagen.args import (
+    fetch_parser,
+    impute_args,
+)
+from trainerlog import get_logger
+from tqdm import tqdm
+import polars as pl
+
+LOGGER = get_logger(name="export-records")
+
+def scrape_record(record):
+    root, _ = parse_tei(record, get_ns=True)
+    
+    speeches = {}
+    all_u_ids = set()
+    # Add IDs for divs
+    record_id = root.attrib[f"{XML_NS}id"]
+    for textDesc in root.findall(f".//{TEI_NS}textDesc"):
+        for constitution in textDesc.findall(f".//{TEI_NS}constitution"):
+            speech_index = 0
+            for speech_note in constitution:
+                speech_id = speech_note.attrib[f"{XML_NS}id"]
+                #print(speech_id)
+
+                # scrape u tags from linkGrp
+                u_ids = set()
+                for ptr in speech_note.findall(f".//{TEI_NS}ptr"):
+                    u_id = ptr.attrib["target"].replace("#", "")
+                    u_ids.add(u_id)
+                    all_u_ids.add(u_id)
+
+                speeches[speech_id] = {"record": record_id, "u_ids": u_ids, "who": None, "text": None, "ix": speech_index}
+                speech_index += 1
+
+    if len(speeches) == 0:
+        return None
+
+    for u in root.findall(f".//{TEI_NS}u"):
+        u_id = u.attrib[f"{XML_NS}id"]
+        if u_id in all_u_ids:
+            LOGGER.debug(f"u {u_id} in all u ids")
+            speech = None
+            for i in speeches:
+                if u_id in speeches[i]["u_ids"]:
+                    speech = i
+
+            LOGGER.debug(f"u {u_id} belongs to speech: {speech}")
+            who = u.attrib["who"]
+            if who == "unknown":
+                who = None
+            speeches[speech]["who"] = who
+            for seg in u:
+                text = " ".join(seg.text.split())
+                if speeches[speech]["text"] is None:
+                    speeches[speech]["text"] = text
+                else:
+                    speeches[speech]["text"] += "\n\n" + text
+
+
+
+    speech_list = []
+    for speech_id in speeches:
+        speech_dict = speeches[speech_id]
+        speech_dict["speech"] = speech_id
+        speech_list.append(speech_dict)
+
+    df = pl.DataFrame(speech_list)
+    df = df.select("speech", "record", "ix", "who", "text")
+    return df
+
+
+def main(args):
+    protocols = args.records
+    all_dfs = []
+    for record in tqdm(args.records):
+        df = scrape_record(record)
+        if df is None:
+            LOGGER.error(f"No speeches in {record}")
+        else:
+            all_dfs.append(df)
+
+    df = pl.concat(all_dfs)
+    df = df.sort("record", "ix")
+    df = df.select("speech", "record", "who", "text")
+    print(df)
+
+    df.write_database(
+        table_name="records_speeches",
+        connection="sqlite:///records_speeches.sqlite",
+    )
+
+if __name__ == "__main__":
+    parser = fetch_parser("records")
+    args = impute_args(parser.parse_args())
+    main(args)
