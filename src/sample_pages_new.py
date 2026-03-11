@@ -14,6 +14,9 @@ from pyriksdagen.utils import corpus_iterator
 tei_ns = "{http://www.tei-c.org/ns/1.0}"
 xml_ns = "{http://www.w3.org/XML/1998/namespace}"
 
+from trainerlog import get_logger
+LOGGER = get_logger("sample-pages")
+
 def get_date(root):
     for docDate in root.findall(f".//{tei_ns}docDate"):
         date_string = docDate.text
@@ -129,7 +132,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--records_folder', type=str, default="corpus/protocols")
     parser.add_argument('--qc_folder', type=str, default="input/quality-control")
-    parser.add_argument("-f", '--seed', type=str, default=None, help="Random state seed")
+    parser.add_argument("-f", '--seed', type=str, required=True, help="Random state seed")
     parser.add_argument("-b", "--branch", type=str, default="main", help="Github branch where curation is happening.")
     parser.add_argument('-p', '--pages_per_decade', type=int, default=30, help="How many pages per decade? 30")
     parser.add_argument("-s", "--start", type=int, default=1920, help="Start year")
@@ -143,13 +146,13 @@ if __name__ == "__main__":
 
     path = args.records_folder
     protocol_df = get_page_counts(path)
-    print(protocol_df)
+    LOGGER.info(f"Protocols:\n{protocol_df}")
 
     all_samples = []
     for decade in range(args.start // 10 * 10, args.end, 10):
-        print("Decade:", decade)
+        LOGGER.info(f"Decade: {decade}")
         sample = sample_page_counts(protocol_df, decade, decade + 9, n=args.pages_per_decade, seed=digest)
-        print(sample)
+        LOGGER.info(f"Sample:\n{sample}")
 
         prng = np.random.RandomState( (digest+decade) % (2**32))
         sample = sample_pages(sample, random_state=prng)
