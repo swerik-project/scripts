@@ -25,6 +25,7 @@ def get_date(root):
     return date_string
 
 def get_page_counts(corpus_path="corpus/protocols/"):
+    LOGGER.info("Load records in to calculate page counts...")
     parser = etree.XMLParser(remove_blank_text=True)
     rows = []
     for protocol_path in tqdm.tqdm(list(corpus_iterator("prot", corpus_root=corpus_path, start=args.start, end=args.end))):
@@ -140,13 +141,14 @@ if __name__ == "__main__":
     parser.add_argument("--flatten", type=bool, default=False, help="Flatten output to only contain pages instead of elements")
     parser.add_argument("--output_file", type=str, default=None, help="Write output here, to a single CSV file, intead of one per decade")
     args = parser.parse_args()
+    LOGGER.train(f"Args: {args}")
 
     digest = hashlib.md5(args.seed.encode("utf-8")).digest()
     digest = int.from_bytes(digest, "big") % (2**32)
 
     path = args.records_folder
     protocol_df = get_page_counts(path)
-    LOGGER.info(f"Protocols:\n{protocol_df}")
+    LOGGER.info(f"Do sampling for the following records:\n{protocol_df}")
 
     all_samples = []
     for decade in range(args.start // 10 * 10, args.end, 10):
