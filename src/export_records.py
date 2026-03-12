@@ -100,8 +100,11 @@ def scrape_record(record):
         speech_dict["speech"] = speech_id
         speech_list.append(speech_dict)
 
-    df = pl.DataFrame(speech_list)
+    df = pl.DataFrame(speech_list, infer_schema_length=None)
     df = df.select("speech", "record", "ix", "who", "text")
+
+    # Make sure who is pl.String in case all who's happen to be null
+    df = df.with_columns(pl.col("who").cast(pl.String))
     return df, metadata
 
 
@@ -120,12 +123,10 @@ def main(args):
     df = pl.concat(all_dfs)
     df = df.sort("record", "ix")
     df = df.select("speech", "record", "who", "text")
-    print(df)
 
     metadata_df = pl.DataFrame(record_metadata)
     metadata_df = metadata_df.select("record", "sitting", "chamber", "number", "start_date", "end_date")
     metadata_df = metadata_df.sort("sitting", "chamber", "number")
-    print(metadata_df.columns)
 
     if "sqlite" in args.formats:
         LOGGER.train("Export to sqlite")
@@ -140,9 +141,19 @@ def main(args):
             connection="sqlite:///records.sqlite",
         )
 
+    # Flattened formats
+    df = df.join(metadata_df, on="record")
+    df.sort("sitting", "chamber", "number")
+    df = df.with_columns(pl.col("sitting").str.head(3).alias("decade"))
+
     if "ndjson" in args.formats:
         LOGGER.train("Export to ndjson")
-        df.write_ndjson("records_speeches.ndjson")
+        for decade in sorted(set(df["decade"])):
+            df_decade = df.filter(pl.col("decade") == decade)
+            df_decade_columns = [col for col in df_decade.columns if col != "decade"]
+            df_decade = df_decade.select(df_decade_columns)
+            LOGGER.info(f"{decade}:\ndf_decade")
+            df_decade.write_ndjson(f"records_speeches_{decade}0s.ndjson")
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
