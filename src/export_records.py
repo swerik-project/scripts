@@ -116,7 +116,7 @@ def main(args):
         df, metadata = scrape_record(record)
         record_metadata.append(metadata)
         if df is None:
-            LOGGER.error(f"No speeches in {record}")
+            LOGGER.warning(f"No speeches in {record}")
         else:
             all_dfs.append(df)
 
@@ -146,14 +146,19 @@ def main(args):
     df.sort("sitting", "chamber", "number")
     df = df.with_columns(pl.col("sitting").str.head(3).alias("decade"))
 
-    if "ndjson" in args.formats:
-        LOGGER.train("Export to ndjson")
+    if "ndjson-decade" in args.formats:
+        LOGGER.train("Export to ndjson by decade")
         for decade in sorted(set(df["decade"])):
             df_decade = df.filter(pl.col("decade") == decade)
             df_decade_columns = [col for col in df_decade.columns if col != "decade"]
             df_decade = df_decade.select(df_decade_columns)
             LOGGER.info(f"{decade}:\ndf_decade")
             df_decade.write_ndjson(f"records_speeches_{decade}0s.ndjson")
+    if "ndjson" in args.formats:
+        LOGGER.train("Export to one ndjson file")
+        df_decade_columns = [col for col in df.columns if col != "decade"]
+        df_decade = df.select(df_decade_columns)
+        df_decade.write_ndjson(f"records_speeches.ndjson")
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
