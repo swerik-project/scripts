@@ -3,10 +3,7 @@ Add a randomly generated UUID to all elements in the XML ID attribute that are c
 
 Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
 """
-import multiprocessing
 from pyriksdagen.utils import (
-    get_formatted_uuid,
-    elem_iter,
     infer_metadata
 )
 from pyriksdagen.utils import (
@@ -15,7 +12,6 @@ from pyriksdagen.utils import (
 )
 from pyriksdagen.io import (
     parse_tei,
-    write_tei
 )
 from pyriksdagen.args import (
     fetch_parser,
@@ -164,5 +160,7 @@ def main(args):
 if __name__ == "__main__":
     parser = fetch_parser("records")
     parser.add_argument("--formats", type=str, nargs="+", default=["sqlite", "ndjson"])
-    args = impute_args(parser.parse_args())
+    args = parser.parse_args()
+    LOGGER.train(f"Args: {args}")
+    args = impute_args(args)
     main(args)
