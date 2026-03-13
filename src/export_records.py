@@ -122,14 +122,15 @@ def main(args):
 
     df = pl.concat(all_dfs)
     df = df.sort("record", "ix")
-    df = df.select("speech", "record", "who", "text")
+    df = df.rename({"ix": "speech_number"})
+    df = df.select("speech", "record", "who", "text", "speech_number")
 
     metadata_df = pl.DataFrame(record_metadata)
     metadata_df = metadata_df.select("record", "sitting", "chamber", "number", "start_date", "end_date")
     metadata_df = metadata_df.sort("sitting", "chamber", "number")
 
     if "sqlite" in args.formats:
-        LOGGER.train("Export to sqlite")
+        LOGGER.info("Export to sqlite")
         if Path("records.sqlite").exists():
             Path("records.sqlite").unlink()
         df.write_database(
@@ -143,11 +144,11 @@ def main(args):
 
     # Flattened formats
     df = df.join(metadata_df, on="record")
-    df.sort("sitting", "chamber", "number")
+    df = df.sort("sitting", "chamber", "number", "speech_number")
     df = df.with_columns(pl.col("sitting").str.head(3).alias("decade"))
 
     if "ndjson-decade" in args.formats:
-        LOGGER.train("Export to ndjson by decade")
+        LOGGER.info("Export to ndjson by decade")
         for decade in sorted(set(df["decade"])):
             df_decade = df.filter(pl.col("decade") == decade)
             df_decade_columns = [col for col in df_decade.columns if col != "decade"]
@@ -162,6 +163,6 @@ def main(args):
 
 if __name__ == "__main__":
     parser = fetch_parser("records")
-    parser.add_argument("--formats", type=str, default=["sqlite", "ndjson"])
+    parser.add_argument("--formats", type=str, nargs="+", default=["sqlite", "ndjson"])
     args = impute_args(parser.parse_args())
     main(args)
