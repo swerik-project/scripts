@@ -1,7 +1,8 @@
 """
-Add a randomly generated UUID to all elements in the XML ID attribute that are currently missing one.
+Export the speeches in the records to newline delimited JSON and/or sqlite
 
-Also adds the document ID (eg. prot-year--number) in the TEI element as an XML ID attribute if its missing.
+The NDJSON output is flattened in the sense that each row has record level metadata
+while the sqlite is not and has two tables
 """
 from pyriksdagen.utils import (
     infer_metadata
