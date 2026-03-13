@@ -45,11 +45,10 @@ def add_new_nextprev(root):
             previous_u = None
             for elem in div:
                 if elem.tag.split("}")[-1] == "u":
-                    if previous_u is None:
-                        previous_u = elem
-                    else:
+                    if previous_u is not None:
                         previous_u.attrib["next"] = elem.attrib[f"{XML_NS}id"]
                         elem.attrib["prev"] = previous_u.attrib[f"{XML_NS}id"]
+                    previous_u = elem
 
                 elif elem.tag.split("}")[-1] == "note":
                     if elem.attrib.get("type") == "speaker":
