@@ -120,10 +120,12 @@ def main(args):
     df = df.sort("record", "ix")
     df = df.rename({"ix": "speech_number"})
     df = df.select("speech", "record", "who", "text", "speech_number")
+    df = df.with_columns(pl.col("speech_number") + 1)
 
     metadata_df = pl.DataFrame(record_metadata)
-    metadata_df = metadata_df.select("record", "sitting", "chamber", "number", "start_date", "end_date")
-    metadata_df = metadata_df.sort("sitting", "chamber", "number")
+    metadata_df = metadata_df.rename({"sitting": "session"})
+    metadata_df = metadata_df.select("record", "session", "chamber", "number", "start_date", "end_date")
+    metadata_df = metadata_df.sort("session", "chamber", "number")
 
     if "sqlite" in args.formats:
         LOGGER.info("Export to sqlite")
@@ -140,8 +142,9 @@ def main(args):
 
     # Flattened formats
     df = df.join(metadata_df, on="record")
-    df = df.sort("sitting", "chamber", "number", "speech_number")
-    df = df.with_columns(pl.col("sitting").str.head(3).alias("decade"))
+    df = df.sort("session", "chamber", "number", "speech_number")
+    df = df.with_columns(pl.col("session").str.head(3).alias("decade"))
+    df = df.rename({"number": "record_number"})
 
     if "ndjson-decade" in args.formats:
         LOGGER.info("Export to ndjson by decade")
