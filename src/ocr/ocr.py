@@ -2,21 +2,40 @@
 """
 OCR PDF files in a path. A path should be of the following format:
 
-<basename>/
-|_ <path>/
-|   |_ abc_1.pdf
-|   |_ abc_2.pdf
+    <basename>/
+    |_ <path>/
+    |   |_ abc_1.pdf
+    |   |_ abc_2.pdf
 
-The output will be
+The output will:
 
-<altopath>/
-|_ <path>/
-|    |_ abc_1/
-|        |_ abc_1_0001.xml
-|        |_ abc_1_0002.xml
-|    |_ abc_2/
-|        |_ abc_2_0001.xml
-|        |_ abc_2_0002.xml
+- augment the pdf base path as follows
+
+    <basename>/
+    |_ <path>/
+    |   |_ abc_1.pdf
+    |   |_ abc_2.pdf
+    |    |_ abc_1/
+    |        |_ abc_1_0001.pdf
+    |        |_ abc_1_0002.pdf
+    |        |_ abc_1_0001.png
+    |        |_ abc_1_0002.png
+    |    |_ abc_2/
+    |        |_ abc_2_0001.pdf
+    |        |_ abc_2_0002.pdf
+    |        |_ abc_2_0001.png
+    |        |_ abc_2_0002.png
+
+- and create alto xml files for each page
+
+    <altopath>/
+    |_ <path>/
+    |    |_ abc_1/
+    |        |_ abc_1_0001.xml
+    |        |_ abc_1_0002.xml
+    |    |_ abc_2/
+    |        |_ abc_2_0001.xml
+    |        |_ abc_2_0002.xml
 """
 from glob import glob
 from pypdf import PdfWriter, PdfReader
@@ -66,6 +85,9 @@ def deskew(image, ipath, ibase):
 
 
 def get_grayscale(image, ipath, ibase):
+    """
+    convert image to greyscale
+    """
     img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     write(img, f"{ipath}{ibase}_1_grayscale.jpg")
     return img, ipath, ibase
@@ -78,6 +100,10 @@ def thresholding(image, ipath, ibase):
 
 
 def preprocess_img(img, ipath, ibase):
+    """
+    greyscale and threshold images
+    (seems unnecessary with tesseract)
+    """
     return thresholding(*get_grayscale(img, ipath, ibase))
 
 
@@ -100,6 +126,9 @@ def extract_imgs(pdf, to):
 
 
 def extract_pages(pdf, to):
+    """
+    paginate multipage pdfs
+    """
     try:
         ok_code = subprocess.run(["gs", 
                                   #"-dDEBUG", 
@@ -125,6 +154,9 @@ def extract_pages(pdf, to):
 
 
 def ocr(img, outpath):
+    """
+    perform OCR on an image
+    """
     with open(outpath, 'wb+') as outf:
         outf.write(pytesseract.image_to_alto_xml(img, lang='swe'))
 
