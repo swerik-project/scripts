@@ -106,7 +106,6 @@ def scrape_record(record):
 
 
 def main(args):
-    protocols = args.records
     all_dfs = []
     record_metadata = []
     for record in tqdm(args.records):
@@ -156,7 +155,7 @@ def main(args):
             LOGGER.info(f"{decade}:\ndf_decade")
             df_decade.write_ndjson(f"records_speeches_{decade}0s.ndjson")
     if "ndjson" in args.formats:
-        LOGGER.train("Export to one ndjson file")
+        LOGGER.info("Export to one ndjson file")
         df_decade_columns = [col for col in df.columns if col != "decade"]
         df_decade = df.select(df_decade_columns)
         df_decade.write_ndjson(f"records_speeches.ndjson")
@@ -165,6 +164,6 @@ if __name__ == "__main__":
     parser = fetch_parser("records")
     parser.add_argument("--formats", type=str, nargs="+", default=["sqlite", "ndjson"])
     args = parser.parse_args()
-    LOGGER.train(f"Args: {args}")
+    LOGGER.info(f"Args: {args}")
     args = impute_args(args)
     main(args)
