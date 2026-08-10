@@ -57,6 +57,8 @@ def add_speeches_to_metadata(speeches, root, ns):
     teiHeader = root.find(f"{ns['tei_ns']}teiHeader")
     if teiHeader is None:
         raise ValueError(f"No TEI header found")
+
+    composition = None
     constitution = teiHeader.find(f".//{ns['tei_ns']}constitution")
     if constitution is None:
         logger.debug("constitution element not found.")
@@ -74,6 +76,12 @@ def add_speeches_to_metadata(speeches, root, ns):
         if composition is None:
             logger.debug("Creating composition elem")
             composition = etree.SubElement(textDesc, "composition")
+
+    if composition is None:
+        textDesc = teiHeader.find(f".//{ns['tei_ns']}textDesc")
+        composition = textDesc.find(f".//{ns['tei_ns']}constitution")
+        for note in list(composition):
+            composition.remove(note)
 
     for id_, Us in speeches.items():
         speechNote = etree.SubElement(composition, "note")
