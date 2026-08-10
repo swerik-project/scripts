@@ -30,23 +30,44 @@ logger = get_logger(name="Annotate Speeches")
 def find_speeches(root, ns):
     speeches = {}
     speech_elems = []
+    prev_intro_id, current_intro_id = None, None
     passed_intro = False
-    def add_to_speeches(speeches, speech_elems):
-        seed = ''.join(speech_elems)
+    def add_to_speeches(speeches, speech_elems, id1, id2):
+        seed = "speech" + id1
+        if id2 is not None:
+            seed += id2
+
         speech_ID = get_formatted_uuid(seed=seed)
         speeches[speech_ID] = speech_elems
         return speeches
-    for tag, elem in elem_iter(root):
-        if tag == "note" and elem.attrib.get("type") == "speaker":
+
+    TEI_NS = ns['tei_ns']
+    body = root.findall(f".//{TEI_NS}body")
+    assert len(body) == 1, f"bodies found {body}"
+    body = body[0]
+    for elem in body.iter():
+        tag = elem.tag
+        if "div" == tag[-3:]:
+            if len(speech_elems) > 0:
+                speeches = add_to_speeches(speeches, speech_elems, current_intro_id, "div")
+                speech_elems = []
+            prev_intro_id, current_intro_id = None, None
+            passed_intro = False
+
+        elif tag[-4:] == "note" and elem.attrib.get("type") == "speaker":
             #print("passed intro")
             passed_intro = True
+
+            prev_intro_id = current_intro_id
+            current_intro_id = elem.get(f"{ns['xml_ns']}id")
             if len(speech_elems) > 0:
-                speeches = add_to_speeches(speeches, speech_elems)
+                speeches = add_to_speeches(speeches, speech_elems, prev_intro_id, current_intro_id)
                 speech_elems = []
-        elif tag == "u" and passed_intro:
+        elif tag[-1] == "u" and passed_intro:
             speech_elems.append(elem.get(f"{ns['xml_ns']}id"))
+
     if len(speech_elems) > 0:
-        speeches = add_to_speeches(speeches, speech_elems)
+        speeches = add_to_speeches(speeches, speech_elems, current_intro_id, None)
 
     if not len(list(speeches.keys())) == len(list(set(list(speeches.keys())))):
         raise ValueError(f"You probably have a duplicate UUID,")
