@@ -49,6 +49,7 @@ import shutil
 
 
 
+
 logger = get_logger("OCR")
 envs = {
         "prot": "RECORDS",
@@ -64,24 +65,6 @@ dflt_paths = {
 
 def write(img, outpath):
     cv2.imwrite(outpath,img)
-
-
-def deskew(image, ipath, ibase):
-    """
-    This is unpredictable (turns images 90º) & not called from anywhere.
-    """
-    coords = np.column_stack(np.where(image > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = -(90 + angle)
-    #else:
-    #    angle = -angle
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    write(rotated, f"{ipath}{ibase}_3_deskew.jpg")
-    return rotated, ipath, ibase
 
 
 def get_grayscale(image, ipath, ibase):
@@ -117,10 +100,11 @@ def extract_imgs(pdf, to):
             ok_code = subprocess.run(["pdfimages", "-png", 
                                       f"{to}/{page}", f"{to}/{os.path.basename(page)[:-4]}"],
                                       #stdout=subprocess.PIPE,
+                                      checked=True
                                       stderr=subprocess.STDOUT)#,
                                       #text=False)
         except subprocessCalledProcessError as e:
-            logger.critical("extract imgs error:", e)
+            logger.critical(f"extract imgs error: {e}")
             raise
     return to
 
@@ -141,7 +125,7 @@ def extract_pages(pdf, to):
                                   "-sDEVICE=pdfimage24",
                                   "-r300",
                                   f'-sOutputFile={to}/{os.path.basename(pdf)[:-4]}_%04d.pdf', 
-                                  pdf])#,
+                                  pdf], checked=True)#,
                              #stdout=subprocess.PIPE,
                              #stderr=subprocess.STDOUT)#,
                              #text=False)
@@ -218,7 +202,7 @@ def main(args):
 
         if args.repair_pdf:
             logger.info("repairing pdf")
-            ok_code = subprocess.run(["mutool", "clean", "-gg", pdf, pdf])
+            ok_code = subprocess.run(["mutool", "clean", "-gg", pdf, pdf], check=True)
             logger.info(f"... done {ok_code}")
 
         if args.split_pdf:
@@ -256,6 +240,10 @@ def main(args):
 
 if __name__ == '__main__':
     def _str2bool(v):
+        """
+        converts true/false strings to actual bool value
+        b/c argparse's type=bool behavior is absurd
+        """
         if isinstance(v, bool):
             return v
         if v.lower() in ('true', '1', 't', 'y', 'yes'):
