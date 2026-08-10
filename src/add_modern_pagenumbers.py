@@ -13,6 +13,7 @@ import traceback
 from urllib.request import urlopen
 import logging
 import sys
+from pyriksdagen.io import write_tei
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -46,7 +47,7 @@ def populate_protocol(jsonpath, rawpath):
     protocol_number = d["dokument"]["nummer"]
     protocol_id = f"prot-{gathering_year}--{protocol_number}"
     riksdagen_protocol_id = d["dokument"]["dok_id"]
-    xmlpath = f"corpus/protocols/{gathering_year}/{protocol_id}.xml"
+    xmlpath = f"riksdagen-records/data/{gathering_year}/{protocol_id}.xml"
     if not Path(xmlpath).exists():
         #warnings.warn(f"Protocol file {xmlpath} missing! Skipping...")
         logging.error(f'Protocol file {xmlpath} missing! Skipping...')
@@ -149,11 +150,12 @@ def populate_protocol(jsonpath, rawpath):
                     pb.attrib["facs"] = f"{pdf_url}#page={pageno}"
                     parent.insert(elem_ix, pb)
 
-    b = etree.tostring(
-        root, pretty_print=True, encoding="utf-8", xml_declaration=True
-    )
-    with Path(xmlpath).open("wb") as f:
-        f.write(b)
+    write_tei(root, xmlpath)
+    # b = etree.tostring(
+    #     root, pretty_print=True, encoding="utf-8", xml_declaration=True
+    # )
+    # with Path(xmlpath).open("wb") as f:
+    #     f.write(b)
 
 def main(args):
     folder = Path(args.jsonpath)
@@ -171,7 +173,7 @@ if __name__ == '__main__':
     import argparse
     argparser = argparse.ArgumentParser(description=__doc__)
     argparser.add_argument("--jsonpath", type=str)
-    argparser.add_argument("--rawpath", type=str)
+    argparser.add_argument("--rawpath", type=str, default="input/digi-origin/raw")
     argparser.add_argument("--utf8sig", type=bool, default=False)
     args = argparser.parse_args()
     main(args)
