@@ -46,15 +46,16 @@ def find_speeches(root, ns):
     assert len(body) == 1, f"bodies found {body}"
     body = body[0]
     for elem in body.iter():
-        tag = elem.tag
-        if "div" == tag[-3:]:
+        # Remove namespace from the tag
+        tag = elem.tag.split("}")[-1]
+        if "div" == tag:
             if len(speech_elems) > 0:
                 speeches = add_to_speeches(speeches, speech_elems, current_intro_id, "div")
                 speech_elems = []
             prev_intro_id, current_intro_id = None, None
             passed_intro = False
 
-        elif tag[-4:] == "note" and elem.attrib.get("type") == "speaker":
+        elif tag == "note" and elem.attrib.get("type") == "speaker":
             #print("passed intro")
             passed_intro = True
 
@@ -63,7 +64,7 @@ def find_speeches(root, ns):
             if len(speech_elems) > 0:
                 speeches = add_to_speeches(speeches, speech_elems, prev_intro_id, current_intro_id)
                 speech_elems = []
-        elif tag[-1] == "u" and passed_intro:
+        elif tag == "u" and passed_intro:
             speech_elems.append(elem.get(f"{ns['xml_ns']}id"))
 
     if len(speech_elems) > 0:
