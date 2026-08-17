@@ -37,7 +37,7 @@ def find_speeches(root, ns):
         Generate a deterministic speech ID and add to the dict.
 
         The ID is generated from a deterministic seed, which
-        consists of "speed" + the ID of the speaker introduction
+        consists of "speech" + the ID of the speaker introduction
         before + the ID of the speaker introduction after. If no
         speaker introduction is found after due to the div
         changing, "div" is added instead. If no introduction is
