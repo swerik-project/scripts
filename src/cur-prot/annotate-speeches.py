@@ -33,6 +33,17 @@ def find_speeches(root, ns):
     prev_intro_id, current_intro_id = None, None
     passed_intro = False
     def add_to_speeches(speeches, speech_elems, id1, id2):
+        """
+        Generate a deterministic speech ID and add to the dict.
+
+        The ID is generated from a deterministic seed, which
+        consists of "speed" + the ID of the speaker introduction
+        before + the ID of the speaker introduction after. If no
+        speaker introduction is found after due to the div
+        changing, "div" is added instead. If no introduction is
+        found due to the document ending, nothing is added at the
+        end.
+        """
         seed = "speech" + id1
         if id2 is not None:
             seed += id2
