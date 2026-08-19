@@ -27,7 +27,7 @@ logger = get_logger(name="Annotate Speeches")
 
 
 
-def find_speeches(root, ns):
+def find_speeches(root, ns, record):
     speeches = {}
     speech_elems = []
     prev_intro_id, current_intro_id = None, None
@@ -54,8 +54,13 @@ def find_speeches(root, ns):
 
     TEI_NS = ns['tei_ns']
     body = root.findall(f".//{TEI_NS}body")
-    assert len(body) == 1, f"bodies found {body}"
-    body = body[0]
+    if not len(body) == 1:
+        logger.error(f"Body elem != 1 in {record} | Body elems: {body}")
+
+    try:
+        body = body[0]
+    except:
+        return speeches
     for elem in body.iter():
         # Remove namespace from the tag
         tag = elem.tag.split("}")[-1]
@@ -134,7 +139,7 @@ def main(args):
     for record in tqdm(args.records):
         logger.debug(record)
         root, ns = parse_tei(record)
-        speeches = find_speeches(root, ns)
+        speeches = find_speeches(root, ns, record)
         if len(speeches) > 0:
             logger.debug(f"  {len(speeches)} speeches found")
             if add_speeches_to_metadata(speeches, root, ns):
