@@ -92,6 +92,10 @@ def find_speeches(root, ns, record):
 
 
 def add_speeches_to_metadata(speeches, root, ns):
+    """
+    Add speeches and text-containing sub elements to the TEIHeader
+    under the constitution element.
+    """
     teiHeader = root.find(f"{ns['tei_ns']}teiHeader")
     if teiHeader is None:
         raise ValueError(f"No TEI header found")
