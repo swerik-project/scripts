@@ -91,7 +91,7 @@ def find_speeches(root, ns, record):
     return speeches
 
 
-def add_speeches_to_metadata(speeches, root, ns):
+def add_speeches_to_metadata(speeches, root, ns, perserve_constitution):
     """
     Add speeches and text-containing sub elements to the TEIHeader
     under the constitution element.
@@ -118,6 +118,10 @@ def add_speeches_to_metadata(speeches, root, ns):
         if composition is None:
             logger.debug("Creating composition elem")
             composition = etree.SubElement(textDesc, "composition")
+    else:
+        if not preserve_constitution:
+            for child in list(constitution):
+                constitution.remove(child)
 
     if composition is None:
         textDesc = teiHeader.find(f".//{ns['tei_ns']}textDesc")
@@ -146,7 +150,7 @@ def main(args):
         speeches = find_speeches(root, ns, record)
         if len(speeches) > 0:
             logger.debug(f"  {len(speeches)} speeches found")
-            if add_speeches_to_metadata(speeches, root, ns):
+            if add_speeches_to_metadata(speeches, root, ns, args.preserve_constitution):
                 write_tei(root, record)
             else:
                 logger.critical("Problem adding speeches to meatadata")
@@ -158,4 +162,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = fetch_parser("records", docstring=__doc__)
+    parser.add_argument("--preserve-constitution",
+                        action='store_true',
+                        help="Don't clobber the constitution element")
     main(impute_args(parser.parse_args()))
