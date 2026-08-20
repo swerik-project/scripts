@@ -91,7 +91,7 @@ def find_speeches(root, ns, record):
     return speeches
 
 
-def add_speeches_to_metadata(speeches, root, ns, perserve_constitution):
+def add_speeches_to_metadata(speeches, root, ns, preserve_constitution):
     """
     Add speeches and text-containing sub elements to the TEIHeader
     under the constitution element.
