@@ -120,6 +120,7 @@ def add_speeches_to_metadata(speeches, root, ns, preserve_constitution):
             composition = etree.SubElement(textDesc, "composition")
     else:
         if not preserve_constitution:
+            print("remove children")
             for child in list(constitution):
                 constitution.remove(child)
 
@@ -144,17 +145,17 @@ def add_speeches_to_metadata(speeches, root, ns, preserve_constitution):
 
 
 def main(args):
+    logger.info(f"Args: {args}")
     for record in tqdm(args.records):
         logger.debug(record)
         root, ns = parse_tei(record)
         speeches = find_speeches(root, ns, record)
-        if len(speeches) > 0:
-            logger.debug(f"  {len(speeches)} speeches found")
-            if add_speeches_to_metadata(speeches, root, ns, args.preserve_constitution):
-                write_tei(root, record)
-            else:
-                logger.critical("Problem adding speeches to meatadata")
+        logger.debug(f"  {len(speeches)} speeches found")
+        if add_speeches_to_metadata(speeches, root, ns, args.preserve_constitution):
+            write_tei(root, record)
         else:
+            logger.critical("Problem adding speeches to meatadata")
+        if len(speeches) == 0:
             logger.warn(f"No speeches found :: {record}")
 
 
