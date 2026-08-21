@@ -120,7 +120,6 @@ def add_speeches_to_metadata(speeches, root, ns, preserve_constitution):
             composition = etree.SubElement(textDesc, "composition")
     else:
         if not preserve_constitution:
-            print("remove children")
             for child in list(constitution):
                 constitution.remove(child)
 
