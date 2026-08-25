@@ -87,6 +87,41 @@ Most scripts take `--start` YEAR and `--end` YEAR arguments to define a span of 
 
 14. Run `scripts/split_into_sections.py`.
 
+## Curating Motions Data
+
+### Signature block extension
+
+Use `src/propose_signature_block_extensions_high_confidence.py` to identify
+high-confidence motion signature tails that were left as immediate paragraphs
+after an existing `<signatureBlock>`. The script uses `pyriksdagen` to iterate
+motions and parse/write TEI, and uses the `riksdagen-persons` data to add
+concrete `who` ids when safe.
+
+Dry-run is the default and writes proposal artifacts:
+
+```
+python ../scripts/src/propose_signature_block_extensions_high_confidence.py \
+  --start 2000 --end 2025 \
+  --include-unknown-signatures \
+  --out test/results/signature-block-extension-2000-2025-proposals.tsv \
+  --markdown-out docs/issue-drafts/signature-block-extension-2000-2025-proposals.md
+```
+
+After proposal review, add `--apply` to move the proposed signer paragraphs
+into the target signature blocks:
+
+```
+python ../scripts/src/propose_signature_block_extensions_high_confidence.py \
+  --start 2000 --end 2025 \
+  --include-unknown-signatures \
+  --apply \
+  --out test/results/signature-block-extension-2000-2025-applied.tsv \
+  --markdown-out docs/issue-drafts/signature-block-extension-2000-2025-applied.md
+```
+
+Run it from the `riksdagen-motions` repository so the default output paths and
+the default `--persons-root ../riksdagen-persons` resolve correctly.
+
 
 ## Quality Control
 
@@ -100,4 +135,3 @@ Most scripts take `--start` YEAR and `--end` YEAR arguments to define a span of 
 	- QC should distinguish between the same segment classes that `scripts/reclassify.py` produces <u> and <note>. Other classes may become relevant later.
 
 4. Does data pass QC test? If yes, add and push the rest of the protocols.
-

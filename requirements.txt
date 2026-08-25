@@ -18,6 +18,7 @@ tensorflow
 textdistance
 torch
 tqdm
+trainerlog
 transformers
 Unidecode
 Wikidata
