@@ -44,10 +44,10 @@ def populate_protocol(jsonpath, rawpath):
                 pdf_url = fil_url.text
 
     gathering_year = d["dokument"]["rm"].replace("/", "")
-    protocol_number = d["dokument"]["nummer"]
-    protocol_id = f"prot-{gathering_year}--{protocol_number}"
+    protocol_number = int(d["dokument"]["nummer"])
+    protocol_id = f"prot-{gathering_year}--{protocol_number:03d}"
     riksdagen_protocol_id = d["dokument"]["dok_id"]
-    xmlpath = f"riksdagen-records/data/{gathering_year}/{protocol_id}.xml"
+    xmlpath = Path(args.xmlpath) / gathering_year / f"{protocol_id}.xml"
     if not Path(xmlpath).exists():
         #warnings.warn(f"Protocol file {xmlpath} missing! Skipping...")
         logging.error(f'Protocol file {xmlpath} missing! Skipping...')
@@ -141,6 +141,10 @@ def populate_protocol(jsonpath, rawpath):
             current_id = elem.attrib.get(f"{xml_ns}id")
             if current_id is not None and mode_dict.get(current_id) is not None:
                 pageno = mode_dict.get(current_id)
+
+                if pageno < current_page:
+                    continue
+
                 if pageno != current_page:
                     parent = elem.getparent()
                     elem_ix = parent.index(elem)
@@ -167,7 +171,6 @@ def main(args):
         except Exception:
             logging.error(f"An error occurred processing {p}")
             traceback.print_exc()
-        #break
                 
 if __name__ == '__main__':
     import argparse
@@ -175,5 +178,7 @@ if __name__ == '__main__':
     argparser.add_argument("--jsonpath", type=str)
     argparser.add_argument("--rawpath", type=str, default="input/digi-origin/raw")
     argparser.add_argument("--utf8sig", type=bool, default=False)
+    argparser.add_argument("--xmlpath", type=str, default="data/",
+                       help="Base folder for XML files")
     args = argparser.parse_args()
     main(args)

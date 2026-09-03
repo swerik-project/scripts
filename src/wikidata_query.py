@@ -19,8 +19,6 @@ import pandas as pd
 import re, time
 
 
-
-
 def track_missing_id(df, l, id_map=None):
     no_id = df.loc[pd.isna(df["person_id"])]
     for i, r in no_id.iterrows():
@@ -43,7 +41,21 @@ def track_missing_id(df, l, id_map=None):
     return df.reset_index(drop=True), l
 
 
+def postprocess_riksmote(df, metadata_folder):
+    # Only EK is scraped, hard-code the value
+    df["chamber"] = "ek"
 
+    # Take everything up to 1990 from the manually annotated file
+    riksdagen_year = pd.read_csv(f'{metadata_folder}/riksdag-year.csv')
+    riksdagen_year = riksdagen_year[riksdagen_year['start'] < "1990-12-31"]
+
+    # Drop everything before 1990 from the scraped df
+    df = df[df['start'] >= "1990-12-31"]
+    
+    # Make sure the columns match
+    df = df[riksdagen_year.columns]
+    joint_df = pd.concat([riksdagen_year, df]).reset_index(drop=True)
+    return joint_df
 
 def main(args):
     if args.metadata_folder is None:
@@ -100,6 +112,28 @@ def main(args):
 
         if q == "external_identifiers":
             df = elongate_external_ids(df)
+
+        if 'riksmote' in df.columns:
+            # Remove redundant information
+            df["riksmote"] = [s.replace("Riksmötet ", "") for s in df["riksmote"]]
+            df["riksmote"] = [s.replace("riksmötet ", "") for s in df["riksmote"]]
+            df["riksmote"] = [s.replace("/20", "") for s in df["riksmote"]]
+            df["riksmote"] = [s.replace("/19", "") for s in df["riksmote"]]
+
+            # Separate meeting, e.g. "202223" from the optional specifier eg. "urtima"
+            meetings = [''.join([char for char in s if char.isdigit()]) for s in df["riksmote"]]
+            specifiers = [''.join([char for char in s if not char.isdigit()]).strip().lower() for s in df["riksmote"]]
+
+            df["parliament_year"] = meetings
+            df["specifier"] = specifiers
+
+            # Convert column name to conform to standard
+            df = df.rename(columns={"riksmote_id": "wiki_id"})
+
+            # Drop unnecessary columns
+            df = df[["parliament_year", "specifier", "start", "end", "wiki_id"]]
+
+            df = postprocess_riksmote(df, metadata_folder)
 
         # Store files needing additional preprocessing in input
         folder = metadata_folder if not q in input_folders else args.input_metadata_folder
