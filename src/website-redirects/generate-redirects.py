@@ -2,61 +2,32 @@
 """
 Generate redirects to pdf documents.
 Assumptions:
- - Each repo of PDFs has a corresponding <doctype>-redirect (local name) with origin <doctype>-pdf in github.
+ - Each repo of PDFs has a corresponding riksdagen-<doctype>-redirect (local name) with origin riksdagen-<doctype>-pdf in github.
+
  - redirects in the form of jekyll-friendly markdown redirects
 
 Generate redirects (a) directly from the pdf files (b) a list of pdf files
 """
-from git import Repo
+
 from glob import glob
 from tqdm import tqdm
-from trainerlog import get_logger
 import argparse, os, shutil
+from trainerlog import get_logger
+from pathlib import Path
+
+LOGGER = get_logger(Path(__file__).name)
 
 
-
-
-logger = get_logger(name="ebun")
-
-
-
-
-def push_redirects(redirects, redirects_path):
-    """
-    Push redirects
-
-    Args:
-        redirects (list): list of redirects
-        redirects_path (str): path
-    """
-    logger.info(redirects[:2])
-    try:
-        repo = Repo(redirects_path.replace("docs", ".git"))
-        repo.index.add(redirects)
-        repo.index.commit("feat:add redirects")
-        origin = repo.remote(name='origin')
-        origin.push("main")
-        return True
-    except Exception as e:
-        logger.error(f"Some error: {e}")
-        return False
 
 
 def make_redirects(pdf_files, pdf_path, redirects_path):
-    """
-    Make a list of redirects from pdf files.
-
-    Args:
-        pdf_files (list): list of pdf diles
-        pdf_path (str): path to pdf repo
-        redirects_path (str): path to redirects repo
-    """
      redirects = []
      for pdf in tqdm(pdf_files):
+        #for pdf in pdf_files:
          file_ = f"{redirects_path}/docs/{pdf.split('data/')[1][:-4]}.md"
          os.makedirs(os.path.dirname(file_), exist_ok=True)
          with open(file_, "w+") as out:
-             out.write(f"---\nlayout: default\nUpRedirect: https://pdf.swedeb.se/{pdf_path}/{pdf.split('data/')[1]}\n---\n")
+             out.write(f"---\nlayout: default\nUpRedirect: https://pdf.swedeb.se/{pdf.replace("data/","")}\n---\n")
          redirects.append(f"docs/{pdf[:-4]}.md")
      return redirects
 
@@ -83,7 +54,6 @@ def main(args):
     pdf_path = f"{args.doctype}-pdf"
     redirects_path = f"{args.doctype}-redirect"
     years = []
-
     if args.from_list is not None:
         with open(args.from_list, 'r') as inf:
             src_files = [_.strip() for _ in inf.readlines()]
@@ -93,12 +63,14 @@ def main(args):
     if args.clobber_dest:
         children = os.listdir(f"{redirects_path}/docs")
         for child in children:
-            if child != "_layouts":
-                if os.path.isdir(f"{redirects_path}/docs/{child}"):
-                    shutil.rmtree(f"{redirects_path}/docs/{child}")
-                else:
-                    os.remove(f"{redirects_path}/docs/{child}")
-
+            if os.path.isdir(child):
+                shutil.rmtree(child)
+            else:
+                try:
+                    os.remove(child)
+                except Exception as e:
+                    LOGGER.warning(f"Tried to remove {child} and failed")
+                    LOGGER.warning(f"{e}")
     if args.year is not None:
         years.append(args.year)
     if args.start is not None:
@@ -160,7 +132,7 @@ if __name__ == '__main__':
             assert args.start is not None
             assert args.end is not None
         except Exception as e:
-            logger.error("both --start and --end or neither\n{e}\nIf you only need one year, use --year")
+            LOGGER.error("both --start and --end or neither\n{e}\nIf you only need one year, use --year")
     if args.clobber_dest and (args.year or args.start):
         raise ValueError("it's not smart to --clobber-dest on a subset of data")
     if args.only_generate_list:
