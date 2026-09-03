@@ -56,10 +56,7 @@ def scrape_motion(path):
 
 def main(args):
     data = []
-    motions = args.motions
-    import random
-    random.shuffle(motions)
-    for path in tqdm(motions[:1000]):
+    for path in tqdm(args.motions):
         motion_data = scrape_motion(path)
         data.append(motion_data)
 
