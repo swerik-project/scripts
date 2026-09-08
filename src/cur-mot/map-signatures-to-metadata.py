@@ -17,14 +17,21 @@ from pyriksdagen.metadata import (
 )
 from pyriksdagen.segmentation import (
     detect_mp,
+    intro_to_dict
 )
+from pyriksdagen.db import filter_db
+
 from pyriksdagen.utils import (
     get_data_location,
+    infer_metadata
 )
 from tqdm import tqdm
 import pandas as pd
 import re
+from trainerlog import get_logger
+import datetime
 
+LOGGER = get_logger("map-signatures")
 
 
 
@@ -39,25 +46,11 @@ start_initial = re.compile(r'^[A-ZÀ-ÖØ-Þ]\.')
 
 
 def match_author(name, db, party_mapping):
-    pa = None
-    specifier = None
-    m = party_abbrev.search(name)
-    if m:
-        name = name[:m.start()]
-        pa = m.group(1).lower()
-    m = None
-    m = i_ort.search(name)
-    if m:
-        name = name[:m.start()]
-        specifier = m.group(2).lower()
-    d = {
-        "name": name.lower(),
-        "party_abbrev": pa,
-        "specifier": specifier,
-    }
+    d = intro_to_dict(name)
     id = detect_mp(d, db, party_map=party_mapping)
-    if id is None:
-        id = detect_mp(d, db, match_fuzzily=True, party_map=party_mapping)
+    #if id is None:
+    #    id = detect_mp(d, db, match_fuzzily=True, party_map=party_mapping)
+    #    print("step3")
     if id is None:
         return "unknown"
     return id
@@ -134,7 +127,6 @@ def handle_block_text(t):
 
 
 def main(args):
-
     lens_counts = {}
     lens = []
     metadata_location = get_data_location("metadata")
@@ -150,52 +142,34 @@ def main(args):
     else:
         db = pd.read_pickle(args.metadata_location)
 
-    for i, motion in enumerate(tqdm(args.motions)):
+    db['start'] = pd.to_datetime(db['start'])
+    db['end'] = pd.to_datetime(db['end'])
+    year = None
+    db_year = None
+    for i, motion in enumerate(tqdm(sorted(args.motions))):
         py = motion.split("/")[2]
         if py in ["fort", "reg"]:
             continue
         root, ns = parse_tei(motion)
-        sb = root.findall(f".//{ns['tei_ns']}p[@type=\"signatureBlock\"]")
-        sb.extend(root.findall(f".//{ns['tei_ns']}div[@type=\"signatureBlock\"]"))
-        for s in sb:
-            t = ' '.join(_.strip() for _ in s.text.splitlines() if _.strip() != '')
-            if len(t) > 0:
-                l = len(t.split(' '))
 
-                if l > 267:
-                    del s.attrib["type"]
-                    s.tag = "p"
-                    continue
-                else:
-                    if l not in lens_counts:
-                        lens_counts[l] = 0
-                    lens_counts[l] += 1
-                    lens.append([motion, l, t])
-                #print('\n', t)
-                names = handle_block_text(t)
-                #print("4", names)
-                #[print("  ", _) for _ in names]
-                #print(motion, s.text.strip())
-                s.tag = "div"
-                s.text = None
-                for name in names:
-                    ne = etree.SubElement(s, "p")
-                    ne.text=name
-                    m = stray_i_ort.match(name)
-                    if m and m.group(0) == name:
-                        ne.attrib["type"] = "strayIOrt"
-                    else:
-                        ne.attrib["type"] = "signature"
-                        ne.attrib["who"] = match_author(name, db, party_mapping)
-            if len(s) > 0:
-                for sig in s:
-                    if "type" in sig.attrib:
-                        if sig.attrib["type"] == "signature":
-                            if args.redetect_knowns:
-                                sig.attrib["who"] = match_author(sig.text, db, party_mapping)
-                            else:
-                                if "who" in sig.attrib and sig.attrib["who"] == "unknown":
-                                    sig.attrib["who"] = match_author(sig.text, db, party_mapping)
+        # Filter db to only include MPs that had a mandate that year
+        metadata = infer_metadata(motion)
+        if year != metadata["year"]:
+            start_date = datetime.datetime(metadata["year"], 1, 1)
+            end_date = datetime.datetime(metadata["year"]+1, 12, 31)
+            db_year = filter_db(db, start_date=start_date, end_date=end_date)
+            year = metadata["year"]
+
+        blocks = root.findall(f".//{ns['tei_ns']}signatureBlock")
+        for signatureBlock in blocks:
+            for item in signatureBlock.findall(f".//{ns['tei_ns']}item"):
+                t = ' '.join(item.text.split())
+                if len(t) > 0:
+                    if item.attrib.get("type") == "signature":
+                        if args.redetect_knowns:
+                            item.attrib["who"] = match_author(t, db_year, party_mapping)
+                        elif item.attrib.get("who") == "unknown":
+                            item.attrib["who"] = match_author(t, db_year, party_mapping)
         write_tei(root, motion)
     df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
     df.to_csv("input/motion_sig_block_len.csv", index=False)
@@ -217,4 +191,7 @@ if __name__ == '__main__':
                         default="True",
                         choices=["True", "False"],
                         help="write db after compile")
-    main(impute_args(parser.parse_args()))
+
+    args = parser.parse_args()
+    LOGGER.info(f"args: {args}")
+    main(impute_args(args))
