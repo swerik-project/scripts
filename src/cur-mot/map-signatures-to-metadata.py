@@ -19,7 +19,7 @@ from pyriksdagen.segmentation import (
     detect_mp,
     intro_to_dict
 )
-from pyriksdagen.db import filter_db
+from pyriksdagen.db import filter_db, load_expressions
 
 from pyriksdagen.utils import (
     get_data_location,
@@ -33,8 +33,8 @@ import datetime
 
 LOGGER = get_logger("map-signatures")
 
-def match_author(name, db, party_mapping, match_fuzzily=False):
-    d = intro_to_dict(name)
+def match_author(name, db, party_mapping, match_fuzzily=False, expressions=None):
+    d = intro_to_dict(name, expressions=expressions)
     if len(d) == 0:
         return "unknown"
 
@@ -66,6 +66,9 @@ def main(args):
     db['end'] = pd.to_datetime(db['end'])
     year = None
     db_year = None
+
+    # Pre-load regex for intro_to_dict for performance reasons
+    intro_expressions = load_expressions(phase="mp")
     for i, motion in enumerate(tqdm(sorted(args.motions))):
         py = motion.split("/")[2]
         if py in ["fort", "reg"]:
@@ -87,9 +90,9 @@ def main(args):
                 if len(t) > 0:
                     if item.attrib.get("type") == "signature":
                         if args.redetect_knowns:
-                            item.attrib["who"] = match_author(t, db_year, party_mapping)
+                            item.attrib["who"] = match_author(t, db_year, party_mapping, expressions=intro_expressions)
                         elif item.attrib.get("who") == "unknown":
-                            item.attrib["who"] = match_author(t, db_year, party_mapping)
+                            item.attrib["who"] = match_author(t, db_year, party_mapping, expressions=intro_expressions)
         write_tei(root, motion)
     df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
     df.to_csv("input/motion_sig_block_len.csv", index=False)
