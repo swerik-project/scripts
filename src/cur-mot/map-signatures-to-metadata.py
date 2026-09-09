@@ -33,97 +33,17 @@ import datetime
 
 LOGGER = get_logger("map-signatures")
 
-
-
-i_ort = re.compile(r'(i/från)\s(\S)+')
-stray_i_ort = re.compile(r'^(från|i)\s\S+\s')
-party_abbrev = re.compile(r'\((\S{1,4})\)')
-end_initial = re.compile(r'.*\s[A-ZÀ-ÖØ-Þ]$')
-start_initial = re.compile(r'^[A-ZÀ-ÖØ-Þ]\.')
-
-
-
-
-
-def match_author(name, db, party_mapping):
+def match_author(name, db, party_mapping, match_fuzzily=False):
     d = intro_to_dict(name)
+    if len(d) == 0:
+        return "unknown"
+
     id = detect_mp(d, db, party_map=party_mapping)
-    #if id is None:
-    #    id = detect_mp(d, db, match_fuzzily=True, party_map=party_mapping)
-    #    print("step3")
+    if id is None and match_fuzzily:
+        id = detect_mp(d, db, match_fuzzily=True, party_map=party_mapping)
     if id is None:
         return "unknown"
     return id
-
-
-def flatten_list(l):
-    return list(chain.from_iterable([[_] if type(_) is not list else _ for _ in l]))
-
-
-def handle_block_text(t):
-    names = [_.strip() for _ in t.split(")")]
-    if len(names) > 1:
-        names = [f"{_})" for _ in names]
-    #print("1", names)
-    for i, name in enumerate(names):
-        m = stray_i_ort.match(name)
-        if m is not None:
-            #print(m, m.start(), m.end())
-            names[i] = [name[:m.end()], name[m.end():]]
-    names = flatten_list(names)
-    for i, name in enumerate(names):
-        split_names = []
-        name_s = [_.strip() for _ in name.split(",")]
-        names[i] = name_s
-    names = flatten_list(names)
-    #print("3", names)
-    for i, name in enumerate(names):
-        #print("n", name)
-        initials = None
-        split_names = []
-        name_s = [_.strip() for _ in name.split(".") if _.strip() != ""]
-        for _ in name_s:
-            _ = _.strip()
-            if 0 < len(_) < 3:
-                if not initials:
-                    initials = f"{_}."
-                else:
-                    initials = initials + ' ' + f"{_}."
-            else:
-                if initials and len(initials) > 0:
-                    split_names.append(f"{initials} {_}")
-                    initials = None
-                else:
-                    split_names.append(_.strip())
-        names[i] = split_names
-    names = flatten_list(names)
-
-    for i, name in enumerate(names):
-        m = end_initial.match(name)
-        if m and i+1 < len(names):
-            names[i] = name + ' ' + names[i+1]
-            names[i+1] = ""
-    names = [_.strip() for _ in names if _ != ""]
-    for i, name in enumerate(names):
-        s = name.split(' ')
-        if len(s) == 1 and i+1 < len(names):
-            m = start_initial.match(names[i+1])
-            if m:
-                names[i] = name + ' ' + names[i+1]
-                names[i+1] = ""
-            else:
-                ss = names[i+1].split(' ')
-                if len(ss) == 1:
-                    names[i] = name + ' ' + names[i+1]
-                    names[i+1] = ""
-        elif len(s) == 1 and i+1 == len(names):
-            names[i-1] = names[i-1] + ' ' + name
-            names[i] = ""
-    names = [_.strip() for _ in names if _ != ""]
-    names = flatten_list(names)
-    return names
-
-
 
 
 def main(args):
