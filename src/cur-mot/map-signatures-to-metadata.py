@@ -23,10 +23,12 @@ from pyriksdagen.db import filter_db, load_expressions
 
 from pyriksdagen.utils import (
     get_data_location,
-    infer_metadata
+    infer_metadata,
+    first_and_last_names
 )
 from tqdm import tqdm
 import pandas as pd
+import polars as pl
 import re
 from trainerlog import get_logger
 import datetime
@@ -51,6 +53,11 @@ def main(args):
     lens = []
     metadata_location = get_data_location("metadata")
     party_mapping = pd.read_csv(f'{metadata_location}/party_abbreviation.csv')
+
+    df_names = pl.read_csv(f'{metadata_location}/name.csv')
+    df_iort = pl.read_csv(f'{metadata_location}/location_specifier.csv')
+    first_names, last_names, iort = first_and_last_names(df_names, df_iort)
+    print(len(first_names), len(last_names), len(iort))
     if args.recompile_metadata:
         db = load_Corpus_metadata()
         db.rename(columns={"person_id":"id", "location":"specifier"}, inplace=True)
@@ -89,9 +96,15 @@ def main(args):
                 t = ' '.join(item.text.split())
                 if len(t) > 0:
                     if item.attrib.get("type") == "signature":
-                        if args.redetect_knowns:
+                        multiple_names = [wd in last_names for wd in t.split()]
+                        multiple_names = sum(multiple_names) >= 2
+                        if multiple_names:
+                            LOGGER.warning(f"Multiple names: {t}")
+
+                        skip_multiple_names = args.skip_multiple_names and multiple_names
+                        if args.redetect_knowns and not skip_multiple_names:
                             item.attrib["who"] = match_author(t, db_year, party_mapping, expressions=intro_expressions)
-                        elif item.attrib.get("who") == "unknown":
+                        elif item.get("who") == "unknown" and not skip_multiple_names:
                             item.attrib["who"] = match_author(t, db_year, party_mapping, expressions=intro_expressions)
         write_tei(root, motion)
     df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
@@ -104,6 +117,7 @@ def main(args):
 if __name__ == '__main__':
     parser = fetch_parser("motions", docstring=__doc__)
     parser.add_argument("--redetect-knowns", action='store_true')
+    parser.add_argument("--skip-multiple-names", action='store_true')
     parser.add_argument("--metadata-location",
                         type=str,
                         default="input/metadata/db.pkl",
