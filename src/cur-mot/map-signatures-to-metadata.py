@@ -34,9 +34,12 @@ from trainerlog import get_logger
 import datetime
 
 LOGGER = get_logger("map-signatures")
+NAME_REGEX = re.compile('^[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15} ([A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15} )?[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{1,15}')
 
 def match_author(name, db, party_mapping, match_fuzzily=False, expressions=None):
+    name = name.replace(".", "")
     d = intro_to_dict(name, expressions=expressions)
+    LOGGER.debug(f"Name: {name}, dict: {d}")
     if len(d) == 0:
         return "unknown"
 
@@ -76,6 +79,11 @@ def main(args):
 
     # Pre-load regex for intro_to_dict for performance reasons
     intro_expressions = load_expressions(phase="mp")
+
+    # Add custom expression for plain names
+    name_exp_index = [t for _, t in intro_expressions].index("name")
+    intro_expressions.insert(name_exp_index, (NAME_REGEX, "name"))
+    print(intro_expressions)
     for i, motion in enumerate(tqdm(sorted(args.motions))):
         py = motion.split("/")[2]
         if py in ["fort", "reg"]:
@@ -103,9 +111,9 @@ def main(args):
 
                         skip_multiple_names = args.skip_multiple_names and multiple_names
                         if args.redetect_knowns and not skip_multiple_names:
-                            item.attrib["who"] = match_author(t, db_year, party_mapping, expressions=intro_expressions)
+                            item.attrib["who"] = match_author(t, db_year, party_mapping, match_fuzzily=args.fuzzy_matching, expressions=intro_expressions)
                         elif item.get("who") == "unknown" and not skip_multiple_names:
-                            item.attrib["who"] = match_author(t, db_year, party_mapping, expressions=intro_expressions)
+                            item.attrib["who"] = match_author(t, db_year, party_mapping, match_fuzzily=args.fuzzy_matching, expressions=intro_expressions)
         write_tei(root, motion)
     df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
     df.to_csv("input/motion_sig_block_len.csv", index=False)
@@ -118,6 +126,7 @@ if __name__ == '__main__':
     parser = fetch_parser("motions", docstring=__doc__)
     parser.add_argument("--redetect-knowns", action='store_true')
     parser.add_argument("--skip-multiple-names", action='store_true')
+    parser.add_argument("--fuzzy-matching", action='store_true')
     parser.add_argument("--metadata-location",
                         type=str,
                         default="input/metadata/db.pkl",
