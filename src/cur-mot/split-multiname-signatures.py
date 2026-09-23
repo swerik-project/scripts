@@ -27,8 +27,18 @@ from trainerlog import get_logger
 
 LOGGER = get_logger("map-signatures")
 
+def is_andersson_etc(s):
+    """
+    Heuristically detect -son ending last names
+    """
+    if len(s) == 0:
+        return False
+    else:
+        return s[0] != s[0].lower() and s[-3:] == "son"
+
 def split_signature(elem, first_names, last_names, iort):
     t = ' '.join(elem.text.split())
+    t = t.replace(" . ", " ")
     t_before = t
     words = t.split()
 
@@ -39,8 +49,9 @@ def split_signature(elem, first_names, last_names, iort):
             w0_clean = w0.replace(".", "")
             w1_clean = w1.replace(".", "")
             cond1 = w0_clean in last_names.union(iort)
-            cond1 = cond1 or (w0_clean[0].isupper() and "son" == w0_clean[-3:])
-            cond2 = w1_clean in first_names or (w1_clean not in last_names and w1_clean[0].isupper())
+            cond1 = cond1 or is_andersson_etc(w0_clean)
+            cond2 = w1_clean in first_names
+            cond2 = cond2 or (w1_clean != "" and w1_clean not in last_names and w1_clean[0].isupper())
 
             if cond1 and cond2:
                 LOGGER.debug(f"Split between : {w0} and {w1}")
@@ -117,7 +128,7 @@ def main(args):
                 t = ' '.join(item.text.split())
                 if len(t) > 0:
                     if item.attrib.get("type") == "signature":
-                        multiple_names = [wd in last_names for wd in t.replace(".", "").split()]
+                        multiple_names = [wd in last_names or is_andersson_etc(wd) for wd in t.replace(".", "").split()]
                         multiple_names = sum(multiple_names) >= 2
                         if multiple_names:
                             #LOGGER.warning(f"Multiple names: {t}")
