@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Map names in signature blocks to metadata.
+Split signature elements with multiple last names in them
 """
 from itertools import chain
 from lxml import etree
@@ -137,12 +137,6 @@ def main(args):
         write_tei(root, motion)
 
     LOGGER.train(f"In total, {no_splits} signature splits were made ({no_splits/len(args.motions)} per motion)")
-    df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
-    df.to_csv("input/motion_sig_block_len.csv", index=False)
-    #{print(k, v) for k, v in dict(sorted(lens_counts.items(), key=lambda item: item[1])).items()}
-
-
-
 
 if __name__ == '__main__':
     parser = fetch_parser("motions", docstring=__doc__)

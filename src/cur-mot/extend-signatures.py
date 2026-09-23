@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Map names in signature blocks to metadata.
+Extend signature block if it is preceded by multiple last names
 """
 from itertools import chain
 from lxml import etree
