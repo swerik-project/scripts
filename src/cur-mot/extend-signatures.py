@@ -2,7 +2,6 @@
 """
 Extend signature block if it is preceded by multiple last names
 """
-from itertools import chain
 from lxml import etree
 from pyriksdagen.args import (
     fetch_parser,
@@ -22,7 +21,6 @@ from pyriksdagen.utils import (
 )
 from tqdm import tqdm
 import polars as pl
-import re
 from trainerlog import get_logger
 
 LOGGER = get_logger("extend-signatures")
