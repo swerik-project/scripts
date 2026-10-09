@@ -25,7 +25,20 @@ import polars as pl
 import re
 from trainerlog import get_logger
 
-LOGGER = get_logger("map-signatures")
+LOGGER = get_logger("extend-signatures")
+
+def allcaps_convert(wd):
+    """
+    Convert allcaps words to 'Capitalized'
+    
+    Keep all other words the same
+    """
+    if len(wd) <= 1:
+        return wd
+    elif wd == wd.upper():
+        return wd.lower().capitalize()
+    else:
+        return wd
 
 def move_elem_to_sigblock(root, elem, sigblock):
     sigblock_list = sigblock.find(f"{TEI_NS}list")
@@ -41,6 +54,19 @@ def move_elem_to_sigblock(root, elem, sigblock):
     elem.attrib["type"] = "signature"
     sigblock_list.append(elem)
     return root
+
+def is_just_names(wds):
+    return_val = True
+    if len(wds) < 2 or len(wds) > 5:
+        return_val = False
+
+    for wd in wds:
+        if wd != "i" and wd == wd.lower():
+           return_val = False
+        elif wd.isnumeric():
+            return_val = False
+
+    return return_val
 
 def main(args):
     metadata_location = get_data_location("metadata")
@@ -63,11 +89,14 @@ def main(args):
         blocks = root.findall(f".//{ns['tei_ns']}signatureBlock")
         for signatureBlock in blocks:
             item = signatureBlock.getnext()
-            if item is not None and item.text is not None:
+            if item is not None and item.text is not None and item.get("type") != "titleString":
                 t = ' '.join(item.text.split())
                 if len(t) > 0:
                     no_wds = len(t.split())
-                    wds_last_names = [wd.replace(".", "") in all_names_etc for wd in t.split()]
+                    wds = t.replace(".", "").split()
+                    wds = [allcaps_convert(wd) for wd in wds]
+
+                    wds_last_names = [wd.replace(".", "") in all_names_etc for wd in wds]
                     multiple_names = sum(wds_last_names) >= 2
                     long_para = no_wds >= 20 and sum(wds_last_names) / no_wds <= 0.2
                     ad_hoc = "tryckeri" not in t.lower() and "aktie" not in t.lower()
@@ -75,8 +104,11 @@ def main(args):
                         new_blocks += 1
                         LOGGER.info(f"Multiple names: {t} in {motion}")
                         move_elem_to_sigblock(root, item, signatureBlock)
-                        #split_signature(item, first_names, last_names, iort)
 
+                    elif is_just_names(wds) and sum(wds_last_names) >= 1:
+                        new_blocks += 1
+                        move_elem_to_sigblock(root, item, signatureBlock)
+                        LOGGER.info(f"Just names lets move it: {t}")
                     elif multiple_names:
                         LOGGER.warning(f"Multiple names but long paragraph: {t} ({sum(wds_last_names)} / {no_wds})")
 

@@ -35,6 +35,7 @@ import datetime
 
 LOGGER = get_logger("map-signatures")
 NAME_REGEX = re.compile('^[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15} ([A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15} )?[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{1,15}')
+LAST_NAME_REGEX = re.compile('^[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15}$')
 
 def match_author(name, db, party_mapping, match_fuzzily=False, expressions=None):
     name = name.replace(".", "")
@@ -55,7 +56,12 @@ def main(args):
     lens_counts = {}
     lens = []
     metadata_location = get_data_location("metadata")
-    party_mapping = pd.read_csv(f'{metadata_location}/party_abbreviation.csv')
+    party_mapping_df = pl.read_csv(f'{metadata_location}/party_abbreviation.csv')
+    party_mapping = {}
+    for row in party_mapping_df.select("party", "abbreviation").to_dicts():
+        # For some reason, the column names are weird
+        # 'party' contains abbreviations, party names and 
+        party_mapping[row["party"]] = row["abbreviation"]
 
     df_names = pl.read_csv(f'{metadata_location}/name.csv')
     df_iort = pl.read_csv(f'{metadata_location}/location_specifier.csv')
@@ -83,7 +89,7 @@ def main(args):
     # Add custom expression for plain names
     name_exp_index = [t for _, t in intro_expressions].index("name")
     intro_expressions.insert(name_exp_index, (NAME_REGEX, "name"))
-    print(intro_expressions)
+    intro_expressions.append((LAST_NAME_REGEX, "name"))
     for i, motion in enumerate(tqdm(sorted(args.motions))):
         py = motion.split("/")[2]
         if py in ["fort", "reg"]:
@@ -114,10 +120,11 @@ def main(args):
                             item.attrib["who"] = match_author(t, db_year, party_mapping, match_fuzzily=args.fuzzy_matching, expressions=intro_expressions)
                         elif item.get("who") == "unknown" and not skip_multiple_names:
                             item.attrib["who"] = match_author(t, db_year, party_mapping, match_fuzzily=args.fuzzy_matching, expressions=intro_expressions)
+
+                            if item.attrib["who"] != "unknown":
+                                mp_id = item.attrib["who"]
+                                LOGGER.info(f"MP matched: {mp_id} ({t})")
         write_tei(root, motion)
-    df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
-    df.to_csv("input/motion_sig_block_len.csv", index=False)
-    #{print(k, v) for k, v in dict(sorted(lens_counts.items(), key=lambda item: item[1])).items()}
 
 
 
