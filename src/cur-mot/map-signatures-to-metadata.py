@@ -2,7 +2,6 @@
 """
 Map names in signature blocks to metadata.
 """
-from itertools import chain
 from lxml import etree
 from pyriksdagen.args import (
     fetch_parser,
@@ -27,7 +26,6 @@ from pyriksdagen.utils import (
     first_and_last_names
 )
 from tqdm import tqdm
-import pandas as pd
 import polars as pl
 import re
 from trainerlog import get_logger
@@ -69,17 +67,14 @@ def main(args):
     print(len(first_names), len(last_names), len(iort))
     if args.recompile_metadata:
         db = load_Corpus_metadata()
-        db.rename(columns={"person_id":"id", "location":"specifier"}, inplace=True)
-        db['name'] = db['name'].apply(lambda x: x.lower().strip())
-        db['start'] = db['start'].apply(lambda x: x if type(x)==str else x.strftime('%Y-%m-%d'))
-        db['end'] = db['end'].apply(lambda x: x if type(x)==str else x.strftime('%Y-%m-%d'))
+        db = db.rename({"person_id":"id", "location":"specifier"})
         if args.write_compiled_db == "True":
-            db.to_pickle(args.metadata_location)
+            db.write_parquet(args.metadata_location)
     else:
-        db = pd.read_pickle(args.metadata_location)
+        db = pl.read_parquet(args.metadata_location)
 
-    db['start'] = pd.to_datetime(db['start'])
-    db['end'] = pd.to_datetime(db['end'])
+    LOGGER.info(f"Got db:\n{db}")
+
     year = None
     db_year = None
 
@@ -136,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument("--fuzzy-matching", action='store_true')
     parser.add_argument("--metadata-location",
                         type=str,
-                        default="input/metadata/db.pkl",
+                        default="input/metadata/db.parquet",
                         help="path to compiled metadata db")
     parser.add_argument("--recompile-metadata", action='store_true')
     parser.add_argument("--write-compiled-db",
