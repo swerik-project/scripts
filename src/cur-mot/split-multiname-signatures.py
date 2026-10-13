@@ -128,8 +128,12 @@ def main(args):
 
     df_names = pl.read_csv(f'{metadata_location}/name.csv')
     df_iort = pl.read_csv(f'{metadata_location}/location_specifier.csv')
-    names = first_and_last_names(df_names, df_iort, return_all_combos=True)
-    first_names, last_names, iort, names, lastname_iort, proper_names = names
+    first_names, last_names, iort = first_and_last_names(df_names, df_iort)
+    names, lastname_iort, proper_names = None, None, None
+    if args.lastname_iort:
+        names = first_and_last_names(df_names, df_iort, return_all_combos=True)
+        first_names, last_names, iort, names, lastname_iort, proper_names = names
+
 
     # Ad-hoc first names
     #first_names = first_names + {"Erik", "Johan"}
@@ -162,7 +166,9 @@ def main(args):
                         wds = [allcaps_convert(wd) for wd in wds]
                         multiple_names = [wd in last_names or is_andersson_etc(wd) for wd in wds]
                         wds_no_i = [wd for wd in wds if wd != "i"]
-                        has_proper_names = len([wd in proper_names for wd in wds_no_i]) >= 4
+                        has_proper_names = False
+                        if proper_names is not None:
+                            has_proper_names = len([wd in proper_names for wd in wds_no_i]) >= 4
 
                         party_labels = [is_party_label(wd) for wd in wds]
                         has_multiple_names = sum(multiple_names) >= 2
@@ -199,8 +205,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = fetch_parser("motions", docstring=__doc__)
-    parser.add_argument("--redetect-knowns", action='store_true')
-    parser.add_argument("--skip-multiple-names", action='store_true')
+    parser.add_argument("--redetect-knowns", action='store_true', help="Also detect signatures where 'who' tag is not unknown.")
+    parser.add_argument("--lastname-iort", action='store_true',
+        help="Use the union of the last name and iort sets, instead of heuristic. Requires a newer version of pyriksdagen.")
     parser.add_argument("--metadata-location",
                         type=str,
                         default="input/metadata/db.pkl",
