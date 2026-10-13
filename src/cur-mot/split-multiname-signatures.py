@@ -80,7 +80,7 @@ def split_signature(elem, first_names, last_names, iort):
         for ix, signature_text in enumerate(new_parts[1:]):
             item = etree.Element("item")
             item.text = signature_text
-            id_seed = f"split_signature\n{original_id}\n{ix}"
+            id_seed = f"split_signature\n{original_id}\n{ix}\n{signature_text}"
             item.attrib[f"{XML_NS}id"] = get_formatted_uuid(id_seed)
 
             letter_count = len([ch for ch in signature_text if ch.isalpha()])
