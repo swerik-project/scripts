@@ -59,7 +59,7 @@ def is_party_label(s):
         cond3 = s[1].isalpha()
         return cond1 and cond2 and cond3
 
-def split_signature(elem, first_names, last_names, iort):
+def split_signature(elem, first_names, last_names, iort, lastname_iort=None):
     t = ' '.join(elem.text.split())
     t = t.replace(" . ", " ")
     t_before = t
@@ -69,13 +69,13 @@ def split_signature(elem, first_names, last_names, iort):
     current_part = [words[0]]
     for w0, w1 in zip(words[:-1], words[1:]):
         if "i" not in [w0,w1]:
-            w0_clean = w0.replace(".", "")
-            w1_clean = w1.replace(".", "")
-            w0_clean = w0.replace(",", "")
-            w1_clean = w1.replace(",", "")
+            w0_clean = w0.replace(".", "").replace(",", "")
+            w1_clean = w1.replace(".", "").replace(",", "")
             cond1 = allcaps_convert(w0_clean) in last_names.union(iort)
-            cond1 = cond1 or is_andersson_etc(allcaps_convert(w0_clean)) or is_party_label(w0_clean)
+            if lastname_iort is not None:
+                cond1 = cond1 or allcaps_convert(w0_clean) in lastname_iort
 
+            cond1 = cond1 or is_andersson_etc(allcaps_convert(w0_clean)) or is_party_label(w0_clean)
             cond2 = allcaps_convert(w1_clean) in first_names
             cond2 = cond2 or (w1_clean != "" and w1_clean not in last_names and w1_clean[0].isupper())
 
@@ -128,7 +128,8 @@ def main(args):
 
     df_names = pl.read_csv(f'{metadata_location}/name.csv')
     df_iort = pl.read_csv(f'{metadata_location}/location_specifier.csv')
-    first_names, last_names, iort = first_and_last_names(df_names, df_iort)
+    names = first_and_last_names(df_names, df_iort, return_all_combos=True)
+    first_names, last_names, iort, names, lastname_iort, proper_names = names
 
     # Ad-hoc first names
     #first_names = first_names + {"Erik", "Johan"}
@@ -157,12 +158,15 @@ def main(args):
                 t = ' '.join(item.text.split())
                 if len(t) > 0:
                     if item.attrib.get("type") == "signature":
-                        wds = t.replace(".", "").split()
-                        wds = t.replace(",", "").split()
+                        wds = t.replace(".", "").replace(",", "").split()
                         wds = [allcaps_convert(wd) for wd in wds]
                         multiple_names = [wd in last_names or is_andersson_etc(wd) for wd in wds]
+                        wds_no_i = [wd for wd in wds if wd != "i"]
+                        has_proper_names = len([wd in proper_names for wd in wds_no_i]) >= 4
+
                         party_labels = [is_party_label(wd) for wd in wds]
                         has_multiple_names = sum(multiple_names) >= 2
+                        LOGGER.debug(f"Multiple names: {multiple_names}, {t}")
 
                         # Check if there is any first names after the last surname or party label
                         last_name_index, party_label_index = None, None
@@ -180,9 +184,9 @@ def main(args):
                         tail = wds[max_ix:]
                         first_names_in_the_tail = [wd in first_names or (len(wd) == 1 and wd[0].isalpha() and wd[0] == wd[0].upper()) for wd in tail]
                         
-                        if has_multiple_names or sum(party_labels) >= 2:
+                        if has_multiple_names or sum(party_labels) >= 2 or has_proper_names:
                             LOGGER.info(f"Multiple names: {t}")
-                            no_splits += split_signature(item, first_names, last_names, iort)
+                            no_splits += split_signature(item, first_names, last_names, iort, lastname_iort=lastname_iort)
                         elif sum(first_names_in_the_tail):
                             ix = first_names_in_the_tail.index(True)
                             wd = wds[ix + max_ix]
