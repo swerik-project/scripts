@@ -36,7 +36,7 @@ EXP = re.compile(
                  )
 
 EXP2 = re.compile(
-                 r"([A-ZÀ-Þ][A-ZÀ-Þa-zß-ÿ]{3,10}) (den [0-9]{1,2}|i) [A-ZÀ-Þ]?[a-zß-ÿ]{3,10} [0-9]{4}(.)?$")
+                 r"(S[A-ZÀ-Þa-zß-ÿ]{3,10}) (den [0-9]{1,2}|i) [A-ZÀ-Þ]?[a-zß-ÿ]{3,10} [0-9]{4}(.)?$")
 
 def convert_to_sigblock(elem, timestamp=None, name=None):
     t = ' '.join(elem.text.split())

@@ -2,7 +2,6 @@
 """
 Map names in signature blocks to metadata.
 """
-from itertools import chain
 from lxml import etree
 from pyriksdagen.args import (
     fetch_parser,
@@ -27,7 +26,6 @@ from pyriksdagen.utils import (
     first_and_last_names
 )
 from tqdm import tqdm
-import pandas as pd
 import polars as pl
 import re
 from trainerlog import get_logger
@@ -35,6 +33,7 @@ import datetime
 
 LOGGER = get_logger("map-signatures")
 NAME_REGEX = re.compile('^[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15} ([A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15} )?[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{1,15}')
+LAST_NAME_REGEX = re.compile('^[A-ZÀ-Þ\\-][a-zß-ÿ\\-]{0,15}$')
 
 def match_author(name, db, party_mapping, match_fuzzily=False, expressions=None):
     name = name.replace(".", "")
@@ -55,7 +54,12 @@ def main(args):
     lens_counts = {}
     lens = []
     metadata_location = get_data_location("metadata")
-    party_mapping = pd.read_csv(f'{metadata_location}/party_abbreviation.csv')
+    party_mapping_df = pl.read_csv(f'{metadata_location}/party_abbreviation.csv')
+    party_mapping = {}
+    for row in party_mapping_df.select("party", "abbreviation").to_dicts():
+        # For some reason, the column names are weird
+        # 'party' contains abbreviations, party names and 
+        party_mapping[row["party"]] = row["abbreviation"]
 
     df_names = pl.read_csv(f'{metadata_location}/name.csv')
     df_iort = pl.read_csv(f'{metadata_location}/location_specifier.csv')
@@ -63,17 +67,14 @@ def main(args):
     print(len(first_names), len(last_names), len(iort))
     if args.recompile_metadata:
         db = load_Corpus_metadata()
-        db.rename(columns={"person_id":"id", "location":"specifier"}, inplace=True)
-        db['name'] = db['name'].apply(lambda x: x.lower().strip())
-        db['start'] = db['start'].apply(lambda x: x if type(x)==str else x.strftime('%Y-%m-%d'))
-        db['end'] = db['end'].apply(lambda x: x if type(x)==str else x.strftime('%Y-%m-%d'))
+        db = db.rename({"person_id":"id", "location":"specifier"})
         if args.write_compiled_db == "True":
-            db.to_pickle(args.metadata_location)
+            db.write_parquet(args.metadata_location)
     else:
-        db = pd.read_pickle(args.metadata_location)
+        db = pl.read_parquet(args.metadata_location)
 
-    db['start'] = pd.to_datetime(db['start'])
-    db['end'] = pd.to_datetime(db['end'])
+    LOGGER.info(f"Got db:\n{db}")
+
     year = None
     db_year = None
 
@@ -83,7 +84,7 @@ def main(args):
     # Add custom expression for plain names
     name_exp_index = [t for _, t in intro_expressions].index("name")
     intro_expressions.insert(name_exp_index, (NAME_REGEX, "name"))
-    print(intro_expressions)
+    intro_expressions.append((LAST_NAME_REGEX, "name"))
     for i, motion in enumerate(tqdm(sorted(args.motions))):
         py = motion.split("/")[2]
         if py in ["fort", "reg"]:
@@ -114,10 +115,11 @@ def main(args):
                             item.attrib["who"] = match_author(t, db_year, party_mapping, match_fuzzily=args.fuzzy_matching, expressions=intro_expressions)
                         elif item.get("who") == "unknown" and not skip_multiple_names:
                             item.attrib["who"] = match_author(t, db_year, party_mapping, match_fuzzily=args.fuzzy_matching, expressions=intro_expressions)
+
+                            if item.attrib["who"] != "unknown":
+                                mp_id = item.attrib["who"]
+                                LOGGER.info(f"MP matched: {mp_id} ({t})")
         write_tei(root, motion)
-    df = pd.DataFrame(lens, columns = ["motion", "length_of_sig_block", "sig_block_text"])
-    df.to_csv("input/motion_sig_block_len.csv", index=False)
-    #{print(k, v) for k, v in dict(sorted(lens_counts.items(), key=lambda item: item[1])).items()}
 
 
 
@@ -129,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument("--fuzzy-matching", action='store_true')
     parser.add_argument("--metadata-location",
                         type=str,
-                        default="input/metadata/db.pkl",
+                        default="input/metadata/db.parquet",
                         help="path to compiled metadata db")
     parser.add_argument("--recompile-metadata", action='store_true')
     parser.add_argument("--write-compiled-db",
