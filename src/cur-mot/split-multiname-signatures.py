@@ -134,17 +134,6 @@ def main(args):
         names = first_and_last_names(df_names, df_iort, return_all_combos=True)
         first_names, last_names, iort, names, lastname_iort, proper_names = names
 
-
-    # Ad-hoc first names
-    #first_names = first_names + {"Erik", "Johan"}
-
-    with open("first_names.txt", "w") as f:
-        f.write("\n".join(list(first_names)))
-    with open("last_names.txt", "w") as f:
-        f.write("\n".join(list(last_names)))
-    with open("iort.txt", "w") as f:
-        f.write("\n".join(list(iort)))
-
     no_splits = 0
     # Pre-load regex for intro_to_dict for performance reasons
     for i, motion in enumerate(tqdm(sorted(args.motions))):
@@ -152,9 +141,6 @@ def main(args):
         if py in ["fort", "reg"]:
             continue
         root, ns = parse_tei(motion)
-
-        # Filter db to only include MPs that had a mandate that year
-        metadata = infer_metadata(motion)
 
         blocks = root.findall(f".//{ns['tei_ns']}signatureBlock")
         for signatureBlock in blocks:
@@ -205,7 +191,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = fetch_parser("motions", docstring=__doc__)
-    parser.add_argument("--redetect-knowns", action='store_true', help="Also detect signatures where 'who' tag is not unknown.")
+    parser.add_argument("--redetect-knowns", action='store_true', help="Also detect signatures where 'who' attribute is not 'unknown'.")
     parser.add_argument("--lastname-iort", action='store_true',
         help="Use the union of the last name and iort sets, instead of heuristic. Requires a newer version of pyriksdagen.")
     parser.add_argument("--metadata-location",
