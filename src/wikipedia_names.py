@@ -9,8 +9,6 @@ from pyriksdagen.args import (
 )
 from pyriksdagen.utils import (
     get_data_location,
-    infer_metadata,
-    first_and_last_names
 )
 from tqdm import tqdm
 import polars as pl
