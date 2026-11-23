@@ -71,6 +71,14 @@ def parse_name(name_str):
 def main(args):
     metadata_location = get_data_location("metadata")
 
+    output_file = Path(args.output_file)
+    current_names_data = ""
+    if output_file.exists():
+        LOGGER.info(f"Read in previously downloaded data from {output_file}...")
+        current_names_data = output_file.open().read()
+    else:
+        LOGGER.info(f"No previously downloaded data in {output_file}, skip.")
+
     db = pl.read_csv(Path(metadata_location)/ "name.csv")
     wiki_db = pl.read_csv(Path(metadata_location)/ "wiki_id.csv")
     db = db.join(wiki_db, on="person_id", how="left")
@@ -80,29 +88,35 @@ def main(args):
     db = db.filter(pl.col("wiki_id").is_not_null())
     LOGGER.info(f"Looping over db:\n{db}")
 
+
+
     for row in tqdm(db.to_dicts()):
-        wikipedia_url = get_wikipedia_url(row["person_id"], row["wiki_id"])
-        LOGGER.info(f"Wikipedia URL: {wikipedia_url}")
-
-        waittime = np.exp(np.random.randn() * 1 + 1.5)
-        LOGGER.info(f"Wait for {waittime} seconds")
-        time.sleep(waittime)
-
-        if wikipedia_url is not None:
-            name_str = get_name_from_wikitext(wikipedia_url)
-            LOGGER.info(f"Full name str {name_str}")
-            name = parse_name(name_str)
-            LOGGER.info(f"Name {name}")
+        person_id = row["person_id"]
+        if not person_id in current_names_data:
+            wikipedia_url = get_wikipedia_url(row["person_id"], row["wiki_id"])
+            LOGGER.info(f"Wikipedia URL: {wikipedia_url}")
 
             waittime = np.exp(np.random.randn() * 1 + 1.5)
             LOGGER.info(f"Wait for {waittime} seconds")
             time.sleep(waittime)
 
-            if name is not None:
-                text_row = row["person_id"] + "," + name + "\n"
+            if wikipedia_url is not None:
+                name_str = get_name_from_wikitext(wikipedia_url)
+                LOGGER.info(f"Full name str {name_str}")
+                name = parse_name(name_str)
+                LOGGER.info(f"Name {name}")
 
-                with open("wikipedia_names.txt", "a") as myfile:
-                    myfile.write(text_row)
+                waittime = np.exp(np.random.randn() * 1 + 1.5)
+                LOGGER.info(f"Wait for {waittime} seconds")
+                time.sleep(waittime)
+
+                if name is not None:
+                    text_row = row["person_id"] + "," + name + "\n"
+
+                    with output_file.open("a") as myfile:
+                        myfile.write(text_row)
+        else:
+            LOGGER.warning(f"Skip {person_id}, already exists in {output_file}")
 
 
 
@@ -120,6 +134,10 @@ if __name__ == '__main__':
                         default="True",
                         choices=["True", "False"],
                         help="write db after compile")
+    parser.add_argument("--output-file",
+                        type=str,
+                        default="wikipedia_names.txt"
+                        )
 
     args = parser.parse_args()
     LOGGER.info(f"args: {args}")
