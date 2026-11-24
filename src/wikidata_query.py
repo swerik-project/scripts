@@ -16,10 +16,15 @@ import argparse
 import numpy as np
 import os
 import pandas as pd
+import polars as pl
 import re, time
 import warnings
+from trainerlog import get_logger
+LOGGER = get_logger("wikidata-query")
 
 def track_missing_id(df, l, id_map=None):
+    print(df)
+    df = df.to_pandas()
     no_id = df.loc[pd.isna(df["person_id"])]
     for i, r in no_id.iterrows():
         tmpdf = df.loc[(df['government'] == r['government']) & (df['role'] == r['role']) & (df['wiki_id'] == r['wiki_id']) & (pd.notnull(df["person_id"]))]
@@ -36,25 +41,26 @@ def track_missing_id(df, l, id_map=None):
                 if r['wiki_id'] not in l:
                     l.append(r['wiki_id'])
 
-    df = df.loc[pd.notnull(df['person_id'])].copy()
-    df.drop(columns=["wiki_id"], inplace=True)
-    return df.reset_index(drop=True), l
+    df = pl.from_pandas(df)
+    df = df.filter(pl.col('person_id').is_not_null())
+    df = df.drop("wiki_id")
+    return df, l
 
 
 def postprocess_riksmote(df, metadata_folder):
     # Only EK is scraped, hard-code the value
-    df["chamber"] = "ek"
+    df = df.with_columns(pl.lit("ek").alias("chamber"))
 
     # Take everything up to 1990 from the manually annotated file
-    riksdagen_year = pd.read_csv(f'{metadata_folder}/riksdag-year.csv')
-    riksdagen_year = riksdagen_year[riksdagen_year['start'] < "1990-12-31"]
+    riksdagen_year = pl.read_csv(f'{metadata_folder}/riksdag-year.csv')
+    riksdagen_year = riksdagen_year.filter(pl.col('start') < "1990-12-31")
 
     # Drop everything before 1990 from the scraped df
-    df = df[df['start'] >= "1990-12-31"]
-    
+    df = df.filter(pl.col('start') >= "1990-12-31")
+    df = df.with_columns(pl.col("parliament_year").cast(pl.Int64))
     # Make sure the columns match
-    df = df[riksdagen_year.columns]
-    joint_df = pd.concat([riksdagen_year, df]).reset_index(drop=True)
+    df = df.select(riksdagen_year.columns)
+    joint_df = pl.concat([riksdagen_year, df])
     return joint_df
 
 def main(args):
@@ -79,32 +85,33 @@ def main(args):
     no_swerik_id = []
     id_map = None
     if  "wiki_id" in queries:
-        print(f"Query Wiki ID started.")
+        LOGGER.info(f"Query Wiki ID started.")
         id_map = query2df("wiki_id", args.source)
-        print(type(id_map))
-        id_map = id_map.drop_duplicates()
-        id_map.to_csv(f'{metadata_folder}/wiki_id.csv', index=False)
+        LOGGER.debug(f"id map type: {type(id_map)}")
+        id_map = id_map.unique()
+        id_map.write_csv(f'{metadata_folder}/wiki_id.csv')
+
 
     for q in queries:
-        print(q)
+        LOGGER.info(f"Query: {q}")
         if q == "wiki_id":
             continue
-        print(f"Query {q} started.")
+        LOGGER.info(f"Query {q} started.")
         df = query2df(q, args.source)
-        print(df, len(df))
+        LOGGER.info(f"Obtained df:\n{df}")
         # Format values
         if 'riksdagen_id' in df.columns:
-            df['riksdagen_id'] = df['riksdagen_id'].astype(str)
+            df = df.with_columns(pl.col('riksdagen_id').cast(pl.String))
 
         if 'gender' in df.columns:
-            df["gender"] = df["gender"].map({'kvinna':'woman', 'man':'man'})
+            df = df.with_columns(pl.col("gender").replace({'kvinna':'woman', 'man':'man'}))
 
         if q == 'minister':
-            df["role"] = df["role"].str.replace('Sveriges', '').str.strip()
+            df = df.with_columns(pl.col("role").str.replace('Sveriges', '', literal=True).str.strip_chars())
             df, no_swerik_id = track_missing_id(df, no_swerik_id, id_map=id_map)
 
         if q == 'member_of_parliament':
-            df["role"] = df["role"].str.extract(r'([A-Za-zÀ-ÿ]*ledamot)')
+            df = df.with_columns(pl.col("role").str.extract(r'([A-Za-zÀ-ÿ]*ledamot)'))
             df, no_swerik_id = track_missing_id(df, no_swerik_id, id_map=id_map)
 
         if q == 'speaker':
@@ -114,31 +121,33 @@ def main(args):
             df = elongate_external_ids(df)
 
         if q == "government":
-            hardcoded_object_len = len(df[df["government"] == "Sveriges regering"])
+            sveriges_regering = pl.col("government") == "Sveriges regering"
+            hardcoded_object_len = len(df.filter(sveriges_regering))
             if hardcoded_object_len == 0:
-                warnings.warning("Hard coded value 'Sveriges regering' not found in the query results")
+                LOGGER.warning("Hard coded value 'Sveriges regering' not found in the query results")
 
-            df = df[df["government"] != "Sveriges regering"]
+            df = df.filter(~sveriges_regering)
+            LOGGER.info(f"Filtered df:\n{df}")
 
         if 'riksmote' in df.columns:
             # Remove redundant information
-            df["riksmote"] = [s.replace("Riksmötet ", "") for s in df["riksmote"]]
-            df["riksmote"] = [s.replace("riksmötet ", "") for s in df["riksmote"]]
-            df["riksmote"] = [s.replace("/20", "") for s in df["riksmote"]]
-            df["riksmote"] = [s.replace("/19", "") for s in df["riksmote"]]
+            LOGGER.info(f"Before:\n{df}")
+            df = df.with_columns(pl.col("riksmote").str.replace("Riksmötet ", ""))
+            df = df.with_columns(pl.col("riksmote").str.replace("riksmötet ", ""))
+            df = df.with_columns(pl.col("riksmote").str.replace("/20", "", literal=True))
+            df = df.with_columns(pl.col("riksmote").str.replace("/19", "", literal=True))
+            LOGGER.info(f"After:\n{df}")
 
             # Separate meeting, e.g. "202223" from the optional specifier eg. "urtima"
-            meetings = [''.join([char for char in s if char.isdigit()]) for s in df["riksmote"]]
-            specifiers = [''.join([char for char in s if not char.isdigit()]).strip().lower() for s in df["riksmote"]]
-
-            df["parliament_year"] = meetings
-            df["specifier"] = specifiers
+            df = df.with_columns(pl.col("riksmote").str.extract(r"(\d+)", 1).alias("parliament_year"))
+            df = df.with_columns(pl.col("riksmote").str.extract(r"(\D+)", 1).str.replace(" ", "").alias("specifier"))
+            LOGGER.info(f"After:\n{df}")
 
             # Convert column name to conform to standard
-            df = df.rename(columns={"riksmote_id": "wiki_id"})
+            df = df.rename({"riksmote_id": "wiki_id"})
 
             # Drop unnecessary columns
-            df = df[["parliament_year", "specifier", "start", "end", "wiki_id"]]
+            df = df.select("parliament_year", "specifier", "start", "end", "wiki_id")
 
             df = postprocess_riksmote(df, metadata_folder)
 
@@ -150,8 +159,9 @@ def main(args):
         if q == 'person':
             df = clean_person_duplicates(df)
 
-        df = df.drop_duplicates()
-        df.to_csv(f'{folder}/{q}.csv', index=False)
+        df = df.unique()
+        df.write_csv(f'{folder}/{q}.csv')
+        time.sleep(0.2)
 
     # Process name and location files
     if d:
@@ -159,15 +169,15 @@ def main(args):
             if key not in queries:
                 d['key'] = pd.read_csv(f'{args.input_metadata_folder}/{key}.csv')
         name, loc = separate_name_location(d['name_location_specifier'], d['alias'])
-        name.to_csv(f'{metadata_folder}/name.csv', index=False)
-        loc.to_csv(f'{metadata_folder}/location_specifier.csv', index=False)
+        name.write_csv(f'{metadata_folder}/name.csv')
+        loc.write_csv(f'{metadata_folder}/location_specifier.csv')
 
         mp_df, party_df = move_party_to_party_df(d['member_of_parliament'], d['party_affiliation'])
-        mp_df.to_csv(f'{metadata_folder}/member_of_parliament.csv', index=False)
-        party_df.to_csv(f'{metadata_folder}/party_affiliation.csv', index=False)
+        mp_df.write_csv(f'{metadata_folder}/member_of_parliament.csv')
+        party_df.write_csv(f'{metadata_folder}/party_affiliation.csv')
 
     if len(no_swerik_id) > 0:
-        print("Some entities returned in the queries seem not to have a swerik ID. Check and add an ID, then requery.")
+        LOGGER.warning("Some entities returned in the queries seem not to have a swerik ID. Check and add an ID, then requery.")
     with open(f"{args.input_metadata_folder}/no_swerik_id_query_results.txt", "w+") as outf:
         [outf.write(f"{_}\n") for _ in no_swerik_id]
 

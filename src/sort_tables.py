@@ -28,7 +28,11 @@ def main(args):
         else:
             sort_keys = val["columns"]
 
-        df = pl.read_csv(fpath, infer_schema_length=10000)
+        schema_override = {
+            "riksdagen_id": pl.String,
+        }
+        df = pl.read_csv(fpath, infer_schema_length=10000, schema_overrides=schema_override)
+        print(df, sort_keys)
         df = df.sort(sort_keys)
         df.write_csv(fpath)
 
