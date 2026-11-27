@@ -81,8 +81,6 @@ def scrape_motion(path, url_root):
             LOGGER.warning(f"Weird facs: {facs}")
         LOGGER.debug(f"{old_facs} -> {facs}")
         metadata["url"] = url_root + "/" + facs
-    else:
-        
 
     return metadata
 
