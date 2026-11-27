@@ -21,6 +21,7 @@ from trainerlog import get_logger
 from tqdm import tqdm
 import polars as pl
 from pathlib import Path
+import random
 
 LOGGER = get_logger(name="export-records")
 
@@ -87,7 +88,9 @@ def scrape_motion(path, url_root):
 
 def main(args):
     data = []
-    for path in tqdm(args.motions):
+    motions = args.motions
+    random.shuffle(motions)
+    for path in tqdm(motions):
         motion_data = scrape_motion(path, args.url_root)
         data.append(motion_data)
 
